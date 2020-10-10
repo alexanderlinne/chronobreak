@@ -3,6 +3,24 @@ use std::time;
 
 pub use time::Duration;
 
+macro_rules! instant_delegate {
+    ($self:ident, $lhs:ident, $rhs:ident, $actual:expr, $mocked:expr) => {
+        match $self {
+            Self::Actual($lhs) => match $rhs {
+                Self::Actual($rhs) => $actual,
+                _ => panic!("Found incompatible Instant unexpectedly!"),
+            },
+            Self::Mocked($lhs) => match $rhs {
+                Self::Mocked($rhs) => $mocked,
+                _ => panic!("Found incompatible Instant unexpectedly!"),
+            },
+        }
+    };
+    ($self:ident, $lhs:ident, $rhs:ident, $e:expr) => {
+        instant_delegate! {$self, $lhs, $rhs, $e, $e}
+    };
+}
+
 #[derive(Copy, Clone, Debug)]
 pub enum Instant {
     Actual(time::Instant),
@@ -19,16 +37,7 @@ impl Instant {
     }
 
     pub fn saturating_duration_since(&self, earlier: Instant) -> Duration {
-        match self {
-            Self::Actual(now) => match earlier {
-                Self::Actual(earlier) => now.saturating_duration_since(earlier),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-            Self::Mocked(now) => match earlier {
-                Self::Mocked(earlier) => now.checked_sub(earlier).unwrap_or_default(),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-        }
+        instant_delegate! {self, now, earlier, now.saturating_duration_since(earlier), now.checked_sub(earlier).unwrap_or_default()}
     }
 
     pub fn checked_add(&self, duration: Duration) -> Option<Self> {
@@ -41,32 +50,13 @@ impl Instant {
 
 impl Ord for Instant {
     fn cmp(&self, rhs: &Self) -> cmp::Ordering {
-        println!("time::Instant::cmp");
-        match self {
-            Self::Actual(lhs) => match rhs {
-                Self::Actual(rhs) => lhs.cmp(rhs),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-            Self::Mocked(lhs) => match rhs {
-                Self::Mocked(rhs) => lhs.cmp(rhs),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-        }
+        instant_delegate! {self, lhs, rhs, lhs.cmp(rhs)}
     }
 }
 
 impl PartialOrd<Instant> for Instant {
     fn partial_cmp(&self, rhs: &Self) -> Option<cmp::Ordering> {
-        match self {
-            Self::Actual(lhs) => match rhs {
-                Self::Actual(rhs) => lhs.partial_cmp(rhs),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-            Self::Mocked(lhs) => match rhs {
-                Self::Mocked(rhs) => lhs.partial_cmp(rhs),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-        }
+        instant_delegate! {self, lhs, rhs, lhs.partial_cmp(rhs)}
     }
 }
 
@@ -74,15 +64,6 @@ impl Eq for Instant {}
 
 impl PartialEq<Instant> for Instant {
     fn eq(&self, rhs: &Self) -> bool {
-        match self {
-            Self::Actual(lhs) => match rhs {
-                Self::Actual(rhs) => lhs.eq(rhs),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-            Self::Mocked(lhs) => match rhs {
-                Self::Mocked(rhs) => lhs.eq(rhs),
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-        }
+        instant_delegate! {self, lhs, rhs, lhs.eq(rhs)}
     }
 }

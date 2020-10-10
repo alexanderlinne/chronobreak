@@ -7,3 +7,4 @@ edition = "2018"
 [dependencies]
 async-std = "1.6"
 chronobreak = { path = "../chronobreak" }
+paste = "1.0"

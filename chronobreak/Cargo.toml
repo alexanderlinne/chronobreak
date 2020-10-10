@@ -1,0 +1,13 @@
+[package]
+name = "chronobreak"
+version = "0.1.0"
+authors = ["Alexander Linne <alexander.linne@outlook.com>"]
+edition = "2018"
+
+[dependencies]
+async-std = "1.6"
+crossbeam = "0.7"
+futures = "0.3"
+futures-timer = "3.0"
+parking_lot = "0.11"
+chronobreak_derive = { path = "../chronobreak_derive" }

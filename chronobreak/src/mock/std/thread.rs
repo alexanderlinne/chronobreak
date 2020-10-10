@@ -1,4 +1,5 @@
-use crate::clock::{auto_inc, manual, ClockStrategy};
+use crate::clock;
+use crate::clock::{auto_inc, manual};
 use crate::mock::std::sync::{Arc, Mutex};
 use crate::mock::std::time::*;
 use std::thread;
@@ -6,12 +7,12 @@ use std::thread;
 pub use std::thread::{panicking, Builder};
 
 pub fn sleep(dur: Duration) {
-    match ClockStrategy::current() {
-        ClockStrategy::Sys => thread::sleep(dur),
-        ClockStrategy::Manual => {}
-        ClockStrategy::AutoInc => {
-            auto_inc::fetch_add(dur);
-        }
+    match_clock_strategy! {
+        Sys => thread::sleep(dur),
+        Manual => {},
+        AutoInc => {
+            clock::fetch_add(dur);
+        },
     }
 }
 
@@ -21,13 +22,13 @@ where
     F: Send + 'static,
     T: Send + 'static,
 {
-    let strategy = ClockStrategy::raw();
+    let strategy = clock::raw();
     let manual = manual::raw();
     let auto_inc = auto_inc::raw();
     let join_cell = Arc::new(Mutex::new(None));
     let join_cell_weak = Arc::downgrade(&join_cell);
     let handle = thread::spawn(move || {
-        ClockStrategy::from_raw(strategy);
+        clock::from_raw(strategy);
         manual::from_raw(manual);
         auto_inc::from_raw(auto_inc);
         let result = f();

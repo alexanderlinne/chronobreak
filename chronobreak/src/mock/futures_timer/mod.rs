@@ -1,4 +1,4 @@
-use crate::clock::*;
+use crate::clock;
 use crate::mock::std::time;
 use std::future::Future;
 use std::pin::Pin;
@@ -27,18 +27,18 @@ impl Future for Delay {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match ClockStrategy::current() {
-            ClockStrategy::Sys => {
+        match_clock_strategy! {
+            Sys => {
                 use futures::future::FutureExt;
                 self.delay.poll_unpin(cx)
-            }
-            ClockStrategy::Manual => {
+            },
+            Manual => {
                 unimplemented! {}
-            }
-            ClockStrategy::AutoInc => {
-                auto_inc::fetch_add(self.dur);
+            },
+            AutoInc => {
+                clock::fetch_add(self.dur);
                 Poll::Ready(())
-            }
+            },
         }
     }
 }

@@ -29,47 +29,109 @@ pub enum ClockStrategy {
     AutoInc,
 }
 
-impl ClockStrategy {
-    // Returns the current clock mode.
-    pub fn current() -> Self {
-        CLOCK_MODE.with(|v| v.borrow().to_owned().unwrap_or(Self::Sys))
-    }
+macro_rules! match_clock_strategy {
+    (Sys => $sys:expr, Manual => $man:expr, AutoInc => $aut:expr,) => {
+        match crate::clock::strategy() {
+            crate::clock::ClockStrategy::Sys => $sys,
+            crate::clock::ClockStrategy::Manual => $man,
+            crate::clock::ClockStrategy::AutoInc => $aut,
+        }
+    };
+}
 
-    // Sets the clock mode globally. This may only be called once per test.
-    pub fn set(mode: ClockStrategy) -> Result<ClockGuard, ()> {
-        CLOCK_MODE.with(|v| {
-            let mut clock_mode = v.borrow_mut();
-            if (*clock_mode).is_some() {
-                Err(())
-            } else {
-                *clock_mode = Some(mode);
-                Ok(ClockGuard {})
-            }
-        })
-    }
+// Returns the current clock strategy.
+pub fn strategy() -> ClockStrategy {
+    CLOCK_MODE.with(|v| v.borrow().to_owned().unwrap_or(ClockStrategy::Sys))
+}
 
-    // Returns the current clock mode or None if it ClockStrategy::set has not
-    // been called yet.
-    #[allow(dead_code)]
-    pub(crate) fn raw() -> Option<Self> {
-        CLOCK_MODE.with(|v| v.borrow().to_owned())
-    }
+// Sets the clock to manual strategy for the current thread. This function
+// must not be called again before the returned guard is dropped. Dropping the
+// guard resets the strategy to the system clock and the internal values of the
+// manual and auto_inc clock to Duration::default().
+pub fn manual() -> Result<ClockGuard, ()> {
+    set_strategy(ClockStrategy::Manual)
+}
 
-    // Returns the current clock mode or None if it ClockStrategy::set has not
-    // been called yet.
-    #[allow(dead_code)]
-    pub(crate) fn from_raw(raw: Option<Self>) {
-        CLOCK_MODE.with(|v| *v.borrow_mut() = raw)
+// Sets the clock to auto_inc strategy for the current thread. This function
+// must not be called again before the returned guard is dropped. Dropping the
+// guard resets the strategy to the system clock and the internal values of the
+// manual and auto_inc clock to Duration::default().
+pub fn auto_inc() -> Result<ClockGuard, ()> {
+    set_strategy(ClockStrategy::AutoInc)
+}
+
+fn set_strategy(mode: ClockStrategy) -> Result<ClockGuard, ()> {
+    CLOCK_MODE.with(|v| {
+        let mut clock_mode = v.borrow_mut();
+        if (*clock_mode).is_some() {
+            Err(())
+        } else {
+            *clock_mode = Some(mode);
+            Ok(ClockGuard {})
+        }
+    })
+}
+
+pub(crate) fn raw() -> Option<ClockStrategy> {
+    CLOCK_MODE.with(|v| v.borrow().to_owned())
+}
+
+pub(crate) fn from_raw(raw: Option<ClockStrategy>) {
+    CLOCK_MODE.with(|v| *v.borrow_mut() = raw)
+}
+
+pub fn set(dur: time::Duration) {
+    match_clock_strategy! {
+        Sys => panic!{"chronobreak::clock::set requires the clock to be mocked"},
+        Manual => MANUAL.with(|v| *v.borrow().lock().unwrap() = dur),
+        AutoInc => AUTO_INC.with(|v| *v.borrow_mut() = dur),
+    }
+}
+
+pub fn reset() {
+    set(time::Duration::default())
+}
+
+pub fn get() -> time::Duration {
+    match_clock_strategy! {
+        Sys => panic!{"chronobreak::clock::get requires the clock to be mocked"},
+        Manual => MANUAL.with(|v| *v.borrow().lock().unwrap()),
+        AutoInc => AUTO_INC.with(|v| *v.borrow()),
+    }
+}
+
+pub fn fetch_add(dur: time::Duration) -> time::Duration {
+    match_clock_strategy! {
+        Sys => panic!{"chronobreak::clock::fetch_add requires the clock to be mocked"},
+        Manual => MANUAL.with(|v| {
+            let v = v.borrow_mut();
+            let mut v = v.lock().unwrap();
+            let result = *v;
+            *v += dur;
+            result
+        }),
+        AutoInc => AUTO_INC.with(|v| {
+            let mut v = v.borrow_mut();
+            let result = *v;
+            *v += dur;
+            result
+        }),
     }
 }
 
 #[macro_export]
 macro_rules! assert_clock_eq {
     ($dur:expr) => {
-        match ClockStrategy::current() {
-            ClockStrategy::Sys => panic! {"assert_clock_eq! {...} needs the clock to be mocked!"},
-            ClockStrategy::Manual => assert_eq!(manual::get(), $dur),
-            ClockStrategy::AutoInc => assert_eq!(auto_inc::get(), $dur),
+        match ::chronobreak::clock::strategy() {
+            ::chronobreak::clock::ClockStrategy::Sys => {
+                panic! {"assert_clock_eq! {...} needs the clock to be mocked!"}
+            }
+            ::chronobreak::clock::ClockStrategy::Manual => {
+                assert_eq!(::chronobreak::clock::get(), $dur)
+            }
+            ::chronobreak::clock::ClockStrategy::AutoInc => {
+                assert_eq!(::chronobreak::clock::get(), $dur)
+            }
         };
     };
 }
@@ -85,63 +147,30 @@ impl Drop for ClockGuard {
     }
 }
 
-pub mod manual {
+pub(crate) mod manual {
     use super::*;
     use crate::mock::std::time;
 
-    pub fn set(dur: time::Duration) {
-        assert_eq!(ClockStrategy::current(), ClockStrategy::Manual);
-        MANUAL.with(|v| *v.borrow().lock().unwrap() = dur)
-    }
-
-    pub fn get() -> time::Duration {
-        assert_eq!(ClockStrategy::current(), ClockStrategy::Manual);
-        MANUAL.with(|v| *v.borrow().lock().unwrap())
-    }
-
-    pub fn fetch_add(dur: time::Duration) -> time::Duration {
-        assert_eq!(ClockStrategy::current(), ClockStrategy::Manual);
-        MANUAL.with(|v| {
-            let v = v.borrow_mut();
-            let mut v = v.lock().unwrap();
-            let result = *v;
-            *v += dur;
-            result
-        })
-    }
+    #[allow(dead_code)]
+    pub(crate) type Raw = Arc<Mutex<time::Duration>>;
 
     #[allow(dead_code)]
-    pub(crate) fn raw() -> Arc<Mutex<time::Duration>> {
+    pub(crate) fn raw() -> Raw {
         MANUAL.with(|v| v.borrow().clone())
     }
 
     #[allow(dead_code)]
-    pub(crate) fn from_raw(raw: Arc<Mutex<time::Duration>>) {
+    pub(crate) fn from_raw(raw: Raw) {
         MANUAL.with(|v| *v.borrow_mut() = raw)
     }
 }
 
-pub mod auto_inc {
+pub(crate) mod auto_inc {
     use super::*;
     use crate::mock::std::time;
 
     #[allow(dead_code)]
     pub(crate) type Raw = time::Duration;
-
-    pub fn get() -> time::Duration {
-        assert_eq!(ClockStrategy::current(), ClockStrategy::AutoInc);
-        AUTO_INC.with(|v| *v.borrow())
-    }
-
-    pub fn fetch_add(dur: time::Duration) -> time::Duration {
-        assert_eq!(ClockStrategy::current(), ClockStrategy::AutoInc);
-        AUTO_INC.with(|v| {
-            let mut v = v.borrow_mut();
-            let result = *v;
-            *v += dur;
-            result
-        })
-    }
 
     #[allow(dead_code)]
     pub(crate) fn raw() -> Raw {

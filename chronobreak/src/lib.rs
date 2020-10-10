@@ -1,5 +1,6 @@
 extern crate chronobreak_derive;
 
+#[macro_use]
 pub mod clock;
 pub mod mock;
 

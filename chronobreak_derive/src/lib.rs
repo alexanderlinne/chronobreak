@@ -10,7 +10,7 @@ pub fn chronobreak(_attr: TokenStream, tokens: TokenStream) -> TokenStream {
     let item: Item = syn::parse(tokens).unwrap();
     let result = match &item {
         Item::Use(item) => {
-            let mocked_item_uses = derive_item_use(item, false);
+            let mocked_item_uses = derive_item_use(item);
             quote! { #(#mocked_item_uses)* }
         }
         Item::Mod(item) => {
@@ -38,19 +38,15 @@ fn derive_mod_content(content: &ModContent) -> ModContent {
 
 fn derive_mod_item(item: &Item) -> impl std::iter::IntoIterator<Item = Item> {
     match item {
-        Item::Use(item) => derive_item_use(item, true),
+        Item::Use(item) => derive_item_use(item),
         item => vec![item.clone()],
     }
 }
 
-fn derive_item_use(item_use: &ItemUse, force_pub: bool) -> Vec<Item> {
+fn derive_item_use(item_use: &ItemUse) -> Vec<Item> {
     let attrs = &item_use.attrs;
     let attrs = quote! {#(#attrs)*};
-    let vis = if force_pub {
-        syn::parse(quote! {pub }.into()).unwrap()
-    } else {
-        item_use.vis.clone()
-    };
+    let vis = &item_use.vis;
     let use_path = match &item_use.tree {
         UseTree::Path(use_path) => use_path,
         _ => unimplemented! {},

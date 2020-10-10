@@ -2,4 +2,5 @@
 members = [
     "chronobreak",
     "chronobreak_derive",
+    "chronobreak_test",
 ]

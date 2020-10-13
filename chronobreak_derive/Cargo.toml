@@ -1,7 +1,10 @@
 [package]
 name = "chronobreak_derive"
-version = "0.1.0"
+version = "0.0.0"
 authors = ["Alexander Linne <alexander.linne@outlook.com>"]
+license = "MIT OR Apache-2.0"
+description = "Derive macros for the chronobreak crate"
+repository = "https://github.com/alexanderlinne/chronobreak"
 edition = "2018"
 
 [lib]

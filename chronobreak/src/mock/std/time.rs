@@ -1,4 +1,5 @@
 use std::cmp;
+use std::ops::Add;
 use std::time;
 
 pub use time::Duration;
@@ -65,5 +66,16 @@ impl Eq for Instant {}
 impl PartialEq<Instant> for Instant {
     fn eq(&self, rhs: &Self) -> bool {
         instant_delegate! {self, lhs, rhs, lhs.eq(rhs)}
+    }
+}
+
+impl Add<Duration> for Instant {
+    type Output = Self;
+
+    fn add(self, rhs: Duration) -> Self {
+        match self {
+            Self::Actual(instant) => Self::Actual(instant + rhs),
+            Self::Mocked(current_time) => Self::Mocked(current_time + rhs),
+        }
     }
 }

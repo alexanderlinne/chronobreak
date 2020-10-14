@@ -42,9 +42,11 @@ pub struct JoinHandle<T>(Arc<Mutex<Option<Instant>>>, thread::JoinHandle<T>);
 impl<T> JoinHandle<T> {
     pub fn join(self) -> thread::Result<T> {
         let result = self.1.join();
-        if let Some(time) = *self.0.lock().unwrap() {
-            let _guard = clock::unfreeze_scoped();
-            clock::advance_to(time);
+        if clock::is_mocked() {
+            if let Some(time) = *self.0.lock().unwrap() {
+                let _guard = clock::unfreeze_scoped();
+                clock::advance_to(time);
+            }
         }
         result
     }

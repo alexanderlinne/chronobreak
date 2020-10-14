@@ -64,3 +64,8 @@ fn frozen_wait_is_blocking() {
     clock::advance(Duration::from_nanos(1));
     thread.join().unwrap();
 }
+
+#[test]
+fn join_handle_works_with_non_mocked_clock() {
+    thread::spawn(|| {}).join().unwrap();
+}

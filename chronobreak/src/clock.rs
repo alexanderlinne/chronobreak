@@ -114,11 +114,12 @@ pub fn is_mocked() -> bool {
 // Duration::default().
 pub fn mocked() -> Result<ClockGuard, ()> {
     STATE.with(|state| {
-        let is_mocked = &mut state.borrow_mut().is_mocked;
-        if *is_mocked {
+        let mut state = state.borrow_mut();
+        if state.is_mocked {
             Err(())
         } else {
-            *is_mocked = true;
+            state.shared_state.registry.register_thread();
+            state.is_mocked = true;
             Ok(ClockGuard {})
         }
     })

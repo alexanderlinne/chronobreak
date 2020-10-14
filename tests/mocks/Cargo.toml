@@ -5,7 +5,7 @@ authors = ["Alexander Linne <alexander.linne@outlook.com>"]
 edition = "2018"
 
 [dependencies]
-chronobreak = { path = "../../chronobreak", features = ["crossbeam", "futures-timer", "parking_lot"] }
+chronobreak = { path = "../../chronobreak" }
 paste = "1.0"
 
 [dependencies.async-std]

@@ -3,7 +3,32 @@ use crate::mock::std::sync::{Arc, Barrier, Mutex};
 use crate::mock::std::time::*;
 use std::thread;
 
-pub use std::thread::{panicking, Builder};
+pub use std::thread::{panicking, Builder, ThreadId};
+
+#[derive(Clone, Debug)]
+pub struct Thread(thread::Thread);
+
+impl Thread {
+    pub fn unpark(&self) {
+        self.0.unpark();
+    }
+
+    pub fn id(&self) -> ThreadId {
+        self.0.id()
+    }
+
+    pub fn name(&self) -> Option<&str> {
+        self.0.name()
+    }
+
+    pub fn expect_blocking_wait(&self) {
+        clock::expect_blocking_wait_on(self.0.id())
+    }
+}
+
+pub fn current() -> Thread {
+    Thread(thread::current())
+}
 
 pub fn sleep(dur: Duration) {
     if clock::is_mocked() {

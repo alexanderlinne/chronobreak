@@ -1,6 +1,9 @@
 #[cfg(feature = "crossbeam")]
 pub mod crossbeam;
 
+#[cfg(feature = "futures")]
+pub mod futures;
+
 #[cfg(feature = "futures-timer")]
 pub mod futures_timer;
 

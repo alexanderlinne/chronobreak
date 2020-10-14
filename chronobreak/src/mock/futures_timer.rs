@@ -27,18 +27,12 @@ impl Future for Delay {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match_clock_strategy! {
-            Sys => {
-                use futures::future::FutureExt;
-                self.delay.poll_unpin(cx)
-            },
-            Manual => {
-                unimplemented! {}
-            },
-            AutoInc => {
-                clock::fetch_add(self.timeout.saturating_duration_since(Instant::now()));
-                Poll::Ready(())
-            },
+        if clock::is_mocked() {
+            clock::advance(self.timeout.saturating_duration_since(Instant::now()));
+            Poll::Ready(())
+        } else {
+            use futures::future::FutureExt;
+            self.delay.poll_unpin(cx)
         }
     }
 }

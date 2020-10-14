@@ -1,18 +1,15 @@
 use crate::clock;
-use crate::clock::{auto_inc, manual};
-use crate::mock::std::sync::{Arc, Mutex};
+use crate::mock::std::sync::{Arc, Barrier, Mutex};
 use crate::mock::std::time::*;
 use std::thread;
 
 pub use std::thread::{panicking, Builder};
 
 pub fn sleep(dur: Duration) {
-    match_clock_strategy! {
-        Sys => thread::sleep(dur),
-        Manual => {},
-        AutoInc => {
-            clock::fetch_add(dur);
-        },
+    if clock::is_mocked() {
+        clock::advance(dur);
+    } else {
+        thread::sleep(dur);
     }
 }
 
@@ -22,32 +19,37 @@ where
     F: Send + 'static,
     T: Send + 'static,
 {
-    let strategy = clock::raw();
-    let manual = manual::raw();
-    let auto_inc = auto_inc::raw();
+    let clock_handle = clock::handle();
     let join_cell = Arc::new(Mutex::new(None));
     let join_cell_weak = Arc::downgrade(&join_cell);
+    let barrier = Arc::new(Barrier::new(2));
+    let barrier2 = barrier.clone();
     let handle = thread::spawn(move || {
-        clock::from_raw(strategy);
-        manual::from_raw(manual);
-        auto_inc::from_raw(auto_inc);
+        clock::register_thread(clock_handle);
+        barrier2.wait();
         let result = f();
         if let Some(cell) = join_cell_weak.upgrade() {
-            *cell.lock().unwrap() = Some(auto_inc::raw());
+            *cell.lock().unwrap() = Some(Instant::now());
         }
         result
     });
+    barrier.wait();
     JoinHandle(join_cell, handle)
 }
 
-pub struct JoinHandle<T>(Arc<Mutex<Option<auto_inc::Raw>>>, thread::JoinHandle<T>);
+pub struct JoinHandle<T>(Arc<Mutex<Option<Instant>>>, thread::JoinHandle<T>);
 
 impl<T> JoinHandle<T> {
     pub fn join(self) -> thread::Result<T> {
         let result = self.1.join();
-        if let Some(auto_inc) = *self.0.lock().unwrap() {
-            auto_inc::from_raw(auto_inc);
+        if let Some(time) = *self.0.lock().unwrap() {
+            let _guard = clock::unfreeze_scoped();
+            clock::advance_to(time);
         }
         result
+    }
+
+    pub fn expect_blocking_wait(&self) {
+        clock::expect_blocking_wait_on(self.1.thread().id())
     }
 }

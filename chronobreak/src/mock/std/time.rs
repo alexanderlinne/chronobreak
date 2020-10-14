@@ -1,3 +1,4 @@
+use crate::clock;
 use std::cmp;
 use std::ops::Add;
 use std::time;
@@ -30,10 +31,10 @@ pub enum Instant {
 
 impl Instant {
     pub fn now() -> Self {
-        match_clock_strategy! {
-            Sys => Self::Actual(time::Instant::now()),
-            Manual => Self::Mocked(crate::clock::get()),
-            AutoInc => Self::Mocked(crate::clock::get()),
+        if clock::is_mocked() {
+            Self::Mocked(clock::get())
+        } else {
+            Self::Actual(time::Instant::now())
         }
     }
 

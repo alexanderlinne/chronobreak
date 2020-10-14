@@ -1,139 +1,70 @@
-use crate::mock::std::time;
+use crate::mock::std::time::*;
 use std::cell::RefCell;
-use std::sync::{Arc, Mutex};
+use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::thread;
+use std::thread::ThreadId;
 
 thread_local! {
-    // The current clock strategy.
-    static CLOCK_MODE: RefCell<Option<ClockStrategy>> = RefCell::new(None);
-
-    // The current time in nanoseconds of the manual clock.
-    static MANUAL: RefCell<Arc<Mutex<time::Duration>>> = RefCell::new(Arc::new(Mutex::new(time::Duration::default())));
-
-    // The carrent time in nanoseconds of the auto incrementing clock.
-    static AUTO_INC: RefCell<time::Duration> = RefCell::new(time::Duration::default());
+    static STATE: RefCell<LocalState> = RefCell::new(LocalState::default());
 }
 
-// Specifies the underlying implementation used by the mocked clock. By default
-// the system clock is used.
-#[derive(Clone, PartialEq, Eq, Debug)]
-pub enum ClockStrategy {
-    // The test mock uses the system time. (default)
-    Sys,
-    // The mocked Instant uses a global nanosecond counter that does not
-    // increase unless the user manually requests it.
-    Manual,
-    // The mocked Instant uses a thread-local counters that automatically
-    // increment when e.g. the thread calls thread::sleep. When one thread
-    // joins another, the clock of the caller is set to the maximum of both
-    // clocks.
-    AutoInc,
+#[derive(Default, Clone)]
+struct LocalState {
+    is_mocked: bool,
+    frozen: bool,
+    time: Duration,
+    shared_state: Arc<SharedState>,
 }
 
-macro_rules! match_clock_strategy {
-    (Sys => $sys:expr, Manual => $man:expr, AutoInc => $aut:expr,) => {
-        match crate::clock::strategy() {
-            crate::clock::ClockStrategy::Sys => $sys,
-            crate::clock::ClockStrategy::Manual => $man,
-            crate::clock::ClockStrategy::AutoInc => $aut,
+#[derive(Default)]
+struct SharedState {
+    time: Mutex<Duration>,
+    freeze_cond: Condvar,
+    registry: TimedWaitRegistry,
+}
+
+#[derive(Default)]
+struct TimedWaitRegistry {
+    data: RwLock<HashMap<ThreadId, RegistryState>>,
+}
+
+#[derive(Default)]
+struct RegistryState {
+    block_id: AtomicUsize,
+    block_mutex: Mutex<()>,
+    block_cond: Condvar,
+}
+
+impl TimedWaitRegistry {
+    fn register_thread(&self) {
+        self.data
+            .write()
+            .unwrap()
+            .insert(thread::current().id(), RegistryState::default());
+    }
+
+    fn notify_blocking_wait(&self) {
+        let lock = self.data.read().unwrap();
+        let registry_state = lock
+            .get(&thread::current().id())
+            .expect("chronobreak internal error: thread was not registered");
+        registry_state.block_id.fetch_add(1, Ordering::SeqCst);
+        registry_state.block_cond.notify_all();
+    }
+
+    fn wait_for_blocking(&self, id: ThreadId) {
+        let lock = self.data.read().unwrap();
+        let registry_state = lock
+            .get(&id)
+            .expect("chronobreak internal error: thread was not registered");
+        let mut lock = registry_state.block_mutex.lock().unwrap();
+        let block_id = registry_state.block_id.load(Ordering::SeqCst);
+        while !registry_state.block_id.load(Ordering::SeqCst) == block_id + 1 {
+            lock = registry_state.block_cond.wait(lock).unwrap();
         }
-    };
-}
-
-// Returns the current clock strategy.
-pub fn strategy() -> ClockStrategy {
-    CLOCK_MODE.with(|v| v.borrow().to_owned().unwrap_or(ClockStrategy::Sys))
-}
-
-// Sets the clock to manual strategy for the current thread. This function
-// must not be called again before the returned guard is dropped. Dropping the
-// guard resets the strategy to the system clock and the internal values of the
-// manual and auto_inc clock to Duration::default().
-pub fn manual() -> Result<ClockGuard, ()> {
-    set_strategy(ClockStrategy::Manual)
-}
-
-// Sets the clock to auto_inc strategy for the current thread. This function
-// must not be called again before the returned guard is dropped. Dropping the
-// guard resets the strategy to the system clock and the internal values of the
-// manual and auto_inc clock to Duration::default().
-pub fn auto_inc() -> Result<ClockGuard, ()> {
-    set_strategy(ClockStrategy::AutoInc)
-}
-
-fn set_strategy(mode: ClockStrategy) -> Result<ClockGuard, ()> {
-    CLOCK_MODE.with(|v| {
-        let mut clock_mode = v.borrow_mut();
-        if (*clock_mode).is_some() {
-            Err(())
-        } else {
-            *clock_mode = Some(mode);
-            Ok(ClockGuard {})
-        }
-    })
-}
-
-pub(crate) fn raw() -> Option<ClockStrategy> {
-    CLOCK_MODE.with(|v| v.borrow().to_owned())
-}
-
-pub(crate) fn from_raw(raw: Option<ClockStrategy>) {
-    CLOCK_MODE.with(|v| *v.borrow_mut() = raw)
-}
-
-pub fn set(dur: time::Duration) {
-    match_clock_strategy! {
-        Sys => panic!{"chronobreak::clock::set requires the clock to be mocked"},
-        Manual => MANUAL.with(|v| *v.borrow().lock().unwrap() = dur),
-        AutoInc => AUTO_INC.with(|v| *v.borrow_mut() = dur),
     }
-}
-
-pub fn reset() {
-    set(time::Duration::default())
-}
-
-pub fn get() -> time::Duration {
-    match_clock_strategy! {
-        Sys => panic!{"chronobreak::clock::get requires the clock to be mocked"},
-        Manual => MANUAL.with(|v| *v.borrow().lock().unwrap()),
-        AutoInc => AUTO_INC.with(|v| *v.borrow()),
-    }
-}
-
-pub fn fetch_add(dur: time::Duration) -> time::Duration {
-    match_clock_strategy! {
-        Sys => panic!{"chronobreak::clock::fetch_add requires the clock to be mocked"},
-        Manual => MANUAL.with(|v| {
-            let v = v.borrow_mut();
-            let mut v = v.lock().unwrap();
-            let result = *v;
-            *v += dur;
-            result
-        }),
-        AutoInc => AUTO_INC.with(|v| {
-            let mut v = v.borrow_mut();
-            let result = *v;
-            *v += dur;
-            result
-        }),
-    }
-}
-
-#[macro_export]
-macro_rules! assert_clock_eq {
-    ($dur:expr) => {
-        match ::chronobreak::clock::strategy() {
-            ::chronobreak::clock::ClockStrategy::Sys => {
-                panic! {"assert_clock_eq! {...} needs the clock to be mocked!"}
-            }
-            ::chronobreak::clock::ClockStrategy::Manual => {
-                assert_eq!(::chronobreak::clock::get(), $dur)
-            }
-            ::chronobreak::clock::ClockStrategy::AutoInc => {
-                assert_eq!(::chronobreak::clock::get(), $dur)
-            }
-        };
-    };
 }
 
 #[must_use]
@@ -141,44 +72,169 @@ pub struct ClockGuard {}
 
 impl Drop for ClockGuard {
     fn drop(&mut self) {
-        CLOCK_MODE.with(|v| *v.borrow_mut() = None);
-        MANUAL.with(|v| *v.borrow().lock().unwrap() = time::Duration::default());
-        AUTO_INC.with(|v| *v.borrow_mut() = time::Duration::default());
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            state.is_mocked = false;
+            state.time = Duration::default();
+            *state.shared_state.time.lock().unwrap() = Duration::default();
+        });
     }
 }
 
-pub(crate) mod manual {
-    use super::*;
-    use crate::mock::std::time;
+#[must_use]
+pub struct UnfreezeGuard {
+    was_frozen: bool,
+}
 
-    #[allow(dead_code)]
-    pub(crate) type Raw = Arc<Mutex<time::Duration>>;
-
-    #[allow(dead_code)]
-    pub(crate) fn raw() -> Raw {
-        MANUAL.with(|v| v.borrow().clone())
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn from_raw(raw: Raw) {
-        MANUAL.with(|v| *v.borrow_mut() = raw)
+impl Drop for UnfreezeGuard {
+    fn drop(&mut self) {
+        set_frozen(self.was_frozen)
     }
 }
 
-pub(crate) mod auto_inc {
-    use super::*;
-    use crate::mock::std::time;
+#[macro_export]
+macro_rules! assert_clock_eq {
+    ($dur:expr) => {
+        if ::chronobreak::clock::is_mocked() {
+            assert_eq!(::chronobreak::clock::get(), $dur);
+        } else {
+            panic! {"assert_clock_eq! {...} needs the clock to be mocked!"};
+        }
+    };
+}
 
-    #[allow(dead_code)]
-    pub(crate) type Raw = time::Duration;
+// Returns whether the clock is currently mocked on the current thread.
+pub fn is_mocked() -> bool {
+    STATE.with(|state| state.borrow().is_mocked)
+}
 
-    #[allow(dead_code)]
-    pub(crate) fn raw() -> Raw {
-        AUTO_INC.with(|v| *v.borrow())
+// Mocks the clock on the current thread. This function must **not** be called
+// again before the returned guard is dropped. Dropping the guard resets the
+// clock to the system clock and the internal values of the mocked clock to
+// Duration::default().
+pub fn mocked() -> Result<ClockGuard, ()> {
+    STATE.with(|state| {
+        let is_mocked = &mut state.borrow_mut().is_mocked;
+        if *is_mocked {
+            Err(())
+        } else {
+            *is_mocked = true;
+            Ok(ClockGuard {})
+        }
+    })
+}
+
+// Freezes the clock on the current thread.
+// This causes all mocked routines on the current thread that perform
+// timed waiting to not increase the local clock automatically. Instead they
+// wait for the global clock to be manually advanced from another thread.
+pub fn freeze() {
+    set_frozen(true)
+}
+
+// Returns wether the clock is frozen on the current thread.
+pub fn is_frozen() -> bool {
+    STATE.with(|state| state.borrow().frozen)
+}
+
+// Unfreezes the clock on the current thread.
+pub fn unfreeze() {
+    set_frozen(false)
+}
+
+// Unfreezes the clock on the current thread.
+pub(crate) fn unfreeze_scoped() -> UnfreezeGuard {
+    UnfreezeGuard {
+        was_frozen: is_frozen(),
     }
+}
 
-    #[allow(dead_code)]
-    pub(crate) fn from_raw(raw: Raw) {
-        AUTO_INC.with(|v| *v.borrow_mut() = raw)
+fn set_frozen(frozen: bool) {
+    STATE.with(|state| state.borrow_mut().frozen = frozen)
+}
+
+// Selts the local and global clock to the given timestamp if it is greater
+// than the current local or global time, respectively.
+pub fn advance_to(time: Instant) {
+    if is_mocked() {
+        if let Instant::Mocked(time) = time {
+            STATE.with(|state| {
+                let mut state = state.borrow_mut();
+                if state.time < time {
+                    state.time = time;
+                }
+                let shared_state = &state.shared_state;
+                let mut global_time = shared_state.time.lock().unwrap();
+                if *global_time < time {
+                    if state.frozen {
+                        shared_state.registry.notify_blocking_wait();
+                        while *global_time < time {
+                            global_time = shared_state.freeze_cond.wait(global_time).unwrap();
+                        }
+                    } else {
+                        *global_time = time;
+                        shared_state.freeze_cond.notify_all();
+                    }
+                }
+            });
+        } else {
+            panic! {"chronobreak::clock::advance_to: the clock is mocked but the given Instant is not"}
+        }
+    } else {
+        panic! {"chronobreak::clock::advance_to requires the clock to be mocked"};
     }
+}
+
+// Advances the local clock by the given duration. Sets the global clock if
+// the new local time is greater.
+pub fn advance(dur: Duration) {
+    if is_mocked() {
+        advance_to(Instant::now() + dur);
+    } else {
+        panic! {"chronobreak::clock::advance requires the clock to be mocked"};
+    }
+}
+
+// Returns the current local time.
+pub fn get() -> Duration {
+    if is_mocked() {
+        STATE.with(|state| state.borrow().time)
+    } else {
+        panic! {"chronobreak::clock::get requires the clock to be mocked"};
+    }
+}
+
+// Synchronizes the global and local time. Sets both to the greater of both
+// timestamps.
+pub fn synchroize() {
+    if is_mocked() {
+        STATE.with(|state| {
+            let mut state = state.borrow_mut();
+            let mut global_time = state.shared_state.time.lock().unwrap();
+            let current_time = std::cmp::max(*global_time, state.time);
+            *global_time = current_time;
+            drop(global_time);
+            state.time = current_time;
+        });
+    } else {
+        panic! {"chronobreak::clock::synchroize requires the clock to be mocked"};
+    }
+}
+
+#[allow(dead_code)]
+pub(crate) struct ClockHandle(LocalState);
+
+#[allow(dead_code)]
+pub(crate) fn handle() -> ClockHandle {
+    ClockHandle(STATE.with(|state| state.borrow().clone()))
+}
+
+#[allow(dead_code)]
+pub(crate) fn register_thread(handle: ClockHandle) {
+    handle.0.shared_state.registry.register_thread();
+    STATE.with(|state| *state.borrow_mut() = handle.0);
+}
+
+pub(crate) fn expect_blocking_wait_on(id: ThreadId) {
+    STATE.with(|state| state.borrow().shared_state.registry.wait_for_blocking(id));
 }

@@ -1,25 +1,25 @@
 use crate::clock;
-use crate::mock::std::time;
+use crate::mock::std::time::*;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 pub struct Delay {
     delay: futures_timer::Delay,
-    dur: time::Duration,
+    timeout: Instant,
 }
 
 impl Delay {
-    pub fn new(dur: time::Duration) -> Self {
+    pub fn new(dur: Duration) -> Self {
         Self {
             delay: futures_timer::Delay::new(dur),
-            dur,
+            timeout: Instant::now() + dur,
         }
     }
 
-    pub fn reset(&mut self, dur: time::Duration) {
+    pub fn reset(&mut self, dur: Duration) {
         self.delay.reset(dur);
-        self.dur = dur;
+        self.timeout = Instant::now() + dur;
     }
 }
 
@@ -36,7 +36,7 @@ impl Future for Delay {
                 unimplemented! {}
             },
             AutoInc => {
-                clock::fetch_add(self.dur);
+                clock::fetch_add(self.timeout.saturating_duration_since(Instant::now()));
                 Poll::Ready(())
             },
         }

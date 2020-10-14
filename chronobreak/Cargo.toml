@@ -9,8 +9,11 @@ edition = "2018"
 
 [dependencies]
 async-std = "1.6"
-crossbeam = "0.7"
+crossbeam = { version = "0.7", optional = true }
 futures = "0.3"
-futures-timer = "3.0"
-parking_lot = "0.11"
+futures-timer = { version = "3.0", optional = true }
+parking_lot = { version = "0.11", optional = true }
 chronobreak_derive = { path = "../chronobreak_derive" }
+
+[features]
+default = ["crossbeam", "futures-timer", "parking_lot"]

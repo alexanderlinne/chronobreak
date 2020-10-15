@@ -15,8 +15,6 @@ struct Args {}
 
 #[derive(FromMeta)]
 struct FnArgs {
-    #[darling(default, rename = "async")]
-    is_async: bool,
     #[darling(default)]
     frozen: bool,
 }
@@ -142,7 +140,7 @@ fn derive_test(args: AttributeArgs, tokens: TokenStream) -> Result<TokenStream, 
 }
 
 fn derive_item_fn(args: &FnArgs, item_fn: &ItemFn) -> Item {
-    let test_attr = if args.is_async {
+    let test_attr = if item_fn.sig.asyncness.is_some() {
         quote! {#[async_std::test]}
     } else {
         quote! {#[test]}

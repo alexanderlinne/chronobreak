@@ -15,6 +15,8 @@ struct Args {}
 
 #[derive(FromMeta)]
 struct FnArgs {
+    #[darling(default, rename = "async")]
+    is_async: bool,
     #[darling(default)]
     frozen: bool,
 }
@@ -140,6 +142,11 @@ fn derive_test(args: AttributeArgs, tokens: TokenStream) -> Result<TokenStream, 
 }
 
 fn derive_item_fn(args: &FnArgs, item_fn: &ItemFn) -> Item {
+    let test_attr = if args.is_async {
+        quote! {#[async_std::test]}
+    } else {
+        quote! {#[test]}
+    };
     let attrs = &item_fn.attrs;
     let vis = &item_fn.vis;
     let sig = &item_fn.sig;
@@ -150,7 +157,7 @@ fn derive_item_fn(args: &FnArgs, item_fn: &ItemFn) -> Item {
     };
     let stmts = &item_fn.block.stmts;
     Item::Fn(parse_quote! {
-        #[test]
+        #test_attr
         #(#attrs)*
         #vis #sig {
             use ::chronobreak::clock;

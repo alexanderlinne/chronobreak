@@ -1,0 +1,5 @@
+error: #[chronobreak] may only be applied to use statements and modules
+ --> $DIR/unsupported_item_type.rs:5:1
+  |
+5 | pub struct Map {}
+  | ^^^^^^^^^^^^^^^^^

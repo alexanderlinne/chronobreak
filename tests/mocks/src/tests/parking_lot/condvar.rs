@@ -26,7 +26,6 @@ fn wait_sycs_with_notifier_impl() {
     let data = Arc::new((Mutex::new(()), Condvar::new(), Barrier::new(2)));
     let data2 = data.clone();
     thread::spawn(move || {
-        clock::unfreeze();
         clock::advance(Duration::from_millis(1));
         data2.2.wait();
         data2.0.lock();
@@ -52,7 +51,6 @@ fn advances_notifier_impl() {
     let data = Arc::new((Mutex::new(()), Condvar::new(), Barrier::new(2)));
     let data2 = data.clone();
     thread::spawn(move || {
-        clock::unfreeze();
         let mut lock = data.0.lock();
         clock::advance(Duration::from_millis(1));
         data.2.wait();

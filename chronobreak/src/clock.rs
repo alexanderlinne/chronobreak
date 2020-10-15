@@ -236,7 +236,9 @@ pub(crate) struct ClockHandle(LocalState);
 
 #[allow(dead_code)]
 pub(crate) fn handle() -> ClockHandle {
-    ClockHandle(STATE.with(|state| state.borrow().clone()))
+    let mut handle = ClockHandle(STATE.with(|state| state.borrow().clone()));
+    handle.0.frozen = false;
+    handle
 }
 
 #[allow(dead_code)]

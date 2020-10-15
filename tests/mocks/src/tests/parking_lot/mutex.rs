@@ -25,7 +25,6 @@ fn test_impl() {
     let data = Arc::new((Mutex::new(()), Barrier::new(2)));
     let data2 = data.clone();
     thread::spawn(move || {
-        clock::unfreeze();
         clock::advance(Duration::from_millis(1));
         data2.0.lock();
         data2.1.wait();

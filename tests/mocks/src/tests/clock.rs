@@ -22,7 +22,6 @@ fn mock_is_not_global() {
 fn main_thread_is_registered() {
     let main_thread = thread::current();
     thread::spawn(move || {
-        clock::unfreeze();
         main_thread.expect_blocking_wait();
         clock::advance(Duration::from_millis(1))
     });
@@ -34,7 +33,6 @@ fn frozen_wait_is_blocking() {
     let thread = thread::spawn(move || {
         clock::advance(Duration::from_nanos(1));
     });
-    clock::unfreeze();
     thread.expect_blocking_wait();
     clock::advance(Duration::from_nanos(1));
     thread.join().unwrap();

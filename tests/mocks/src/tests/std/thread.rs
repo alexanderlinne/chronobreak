@@ -1,5 +1,3 @@
-use chronobreak::clock;
-
 #[chronobreak]
 mod mock {
     pub use std::sync::Arc;
@@ -36,7 +34,6 @@ fn join_doesnt_freeze() {
 
 fn mocked_thread_join_syncs_impl() {
     thread::spawn(move || {
-        clock::unfreeze();
         thread::sleep(Duration::from_nanos(1));
     })
     .join()

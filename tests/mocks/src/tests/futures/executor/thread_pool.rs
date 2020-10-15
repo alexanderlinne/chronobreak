@@ -1,4 +1,3 @@
-use chronobreak::clock;
 use futures::future::FutureObj;
 use futures::task::Spawn;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -16,9 +15,8 @@ impl_debug! {thread_pool, ThreadPool::new().unwrap()}
 impl_default! {thread_pool_builder, ThreadPoolBuilder}
 impl_debug! {thread_pool_builder, ThreadPool::builder()}
 
-#[test]
+#[chronobreak::test]
 fn spawn_ok() {
-    let _clock = clock::mocked().unwrap();
     let pool = ThreadPool::new().unwrap();
     let barrier = Arc::new(Barrier::new(2));
     let barrier2 = barrier.clone();
@@ -29,9 +27,8 @@ fn spawn_ok() {
     barrier.wait();
 }
 
-#[test]
+#[chronobreak::test]
 fn spawn_obj() {
-    let _clock = clock::mocked().unwrap();
     let pool = ThreadPool::new().unwrap();
     let barrier = Arc::new(Barrier::new(2));
     let barrier2 = barrier.clone();
@@ -43,9 +40,8 @@ fn spawn_obj() {
     barrier.wait();
 }
 
-#[test]
+#[chronobreak::test]
 fn spawn_obj_ok() {
-    let _clock = clock::mocked().unwrap();
     let pool = ThreadPool::new().unwrap();
     let barrier = Arc::new(Barrier::new(2));
     let barrier2 = barrier.clone();
@@ -56,9 +52,8 @@ fn spawn_obj_ok() {
     barrier.wait();
 }
 
-#[test]
+#[chronobreak::test]
 fn with_custom_after_start_is_mocked() {
-    let _clock = clock::mocked().unwrap();
     let executed = Arc::new(AtomicBool::default());
     let executed2 = executed.clone();
     let pool = ThreadPool::builder()

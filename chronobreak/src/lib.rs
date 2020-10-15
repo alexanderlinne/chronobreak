@@ -5,3 +5,4 @@ pub mod clock;
 pub mod mock;
 
 pub use chronobreak_derive::chronobreak;
+pub use chronobreak_derive::test;

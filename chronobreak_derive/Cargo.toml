@@ -11,6 +11,17 @@ edition = "2018"
 proc-macro = true
 
 [dependencies]
+darling = "0.10"
 proc-macro2 = "1.0"
+proc-macro-error = "1.0"
 syn = "1.0"
 quote = "1.0"
+
+[dev-dependencies]
+chronobreak = { path = "../chronobreak" }
+trybuild = "1.0"
+
+[[test]]
+name = "ui"
+path = "tests/ui/mod.rs"
+harness = false

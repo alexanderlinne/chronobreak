@@ -1,5 +1,4 @@
 use crate::clock;
-use parking_lot;
 use crate::mock::std::time::*;
 
 pub use parking_lot::*;
@@ -14,7 +13,7 @@ pub struct Mutex<T> {
 impl<T> Mutex<T> {
     pub fn new(val: T) -> Self {
         Self {
-            mutex: parking_lot::Mutex::new((val, Duration::default()))
+            mutex: parking_lot::Mutex::new((val, Duration::default())),
         }
     }
 
@@ -41,7 +40,7 @@ impl<'a, T> From<parking_lot::MutexGuard<'a, MutexData<T>>> for MutexGuard<'a, T
 }
 
 impl<'a, T> Drop for MutexGuard<'a, T> {
-    fn drop(self) {
+    fn drop(&mut self) {
         if clock::is_mocked() {
             self.guard.1 = Instant::now().into();
         }
@@ -51,44 +50,55 @@ impl<'a, T> Drop for MutexGuard<'a, T> {
 #[derive(Debug)]
 pub struct Condvar {
     condvar: parking_lot::Condvar,
-    time: Mutex<Instant>,
+    time_sync: Mutex<()>,
 }
 
 impl Default for Condvar {
     fn default() -> Self {
         Self {
             condvar: parking_lot::Condvar::default(),
-            time: Mutex::new(Instant::now()),
+            time_sync: Mutex::new(()),
         }
     }
 }
 
 impl Condvar {
     pub fn new() -> Self {
-        Self { condvar: parking_lot::Condvar::new(), time: Mutex::new(Instant::now()) }
+        Self {
+            condvar: parking_lot::Condvar::new(),
+            time_sync: Mutex::new(()),
+        }
     }
 
     pub fn notify_one(&self) -> bool {
         if clock::is_mocked() {
-            unimplemented! {}
-        } else {
-            self.condvar.notify_one()
+            self.time_sync.lock();
         }
+        let result = self.condvar.notify_one();
+        if clock::is_mocked() {
+            self.time_sync.lock();
+        }
+        result
     }
 
     pub fn notify_all(&self) -> usize {
         if clock::is_mocked() {
-            unimplemented! {}
-        } else {
-            self.condvar.notify_all()
+            self.time_sync.lock();
         }
+        let result = self.condvar.notify_all();
+        if clock::is_mocked() {
+            self.time_sync.lock();
+        }
+        result
     }
 
-    pub fn wait<T: ?Sized>(&self, mutex_guard: &mut MutexGuard<T>) {
+    pub fn wait<T>(&self, mutex_guard: &mut MutexGuard<T>) {
         if clock::is_mocked() {
-            unimplemented! {}
-        } else {
-            self.condvar.wait(mutex_guard.into())
+            self.time_sync.lock();
+        }
+        self.condvar.wait(&mut mutex_guard.guard);
+        if clock::is_mocked() {
+            self.time_sync.lock();
         }
     }
 }

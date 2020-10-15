@@ -1,3 +1,5 @@
+use chronobreak::clock;
+
 #[chronobreak]
 mod mock {
     pub use std::sync::Arc;
@@ -7,7 +9,7 @@ mod mock {
 use mock::*;
 
 #[chronobreak::test]
-fn mocked_transfers_on_thread_spawn() {
+fn mocked_transfers_on_spawn() {
     clock::advance(Duration::from_nanos(1));
     thread::spawn(move || {
         assert_clock_eq!(Duration::from_nanos(1));
@@ -17,45 +19,29 @@ fn mocked_transfers_on_thread_spawn() {
 }
 
 #[chronobreak::test]
-fn mocked_thread_sleep() {
+fn sleep_advances() {
     thread::sleep(Duration::from_nanos(1));
     assert_clock_eq!(Duration::from_nanos(1));
 }
 
 #[chronobreak::test]
-fn mocked_is_not_global() {
-    // Tests that the mocked clock is global for only the threads that have been
-    // created within the current test. This is required as multiple tests may
-    // run in parallel.
-
-    // Don't use mock thread::spawn here!
-    std::thread::spawn(move || {
-        thread::sleep(Duration::from_nanos(1));
-    })
-    .join()
-    .unwrap();
-    assert_clock_eq!(Duration::from_nanos(0));
+fn mocked_thread_join_syncs() {
+    mocked_thread_join_syncs_impl()
 }
 
-#[chronobreak::test]
-fn mocked_thread_join_sync() {
+#[chronobreak::test(frozen)]
+fn join_doesnt_freeze() {
+    mocked_thread_join_syncs_impl()
+}
+
+fn mocked_thread_join_syncs_impl() {
     thread::spawn(move || {
+        clock::unfreeze();
         thread::sleep(Duration::from_nanos(1));
     })
     .join()
     .unwrap();
     assert_clock_eq!(Duration::from_nanos(1));
-}
-
-#[chronobreak::test]
-fn frozen_wait_is_blocking() {
-    let thread = thread::spawn(move || {
-        clock::freeze();
-        clock::advance(Duration::from_nanos(1));
-    });
-    thread.expect_blocking_wait();
-    clock::advance(Duration::from_nanos(1));
-    thread.join().unwrap();
 }
 
 #[test]

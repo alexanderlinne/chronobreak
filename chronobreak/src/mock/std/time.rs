@@ -33,15 +33,19 @@ impl Into<time::Instant> for Instant {
     fn into(self) -> time::Instant {
         match self {
             Self::Actual(instant) => instant,
-            Self::Mocked(_) => panic! {"chronobreak: Cannot convert mocked Instant into std::time::Instant"},
+            Self::Mocked(_) => {
+                panic! {"chronobreak: Cannot convert mocked Instant into std::time::Instant"}
+            }
         }
     }
 }
 
 impl From<Instant> for Duration {
-    fn from(self, current_time: Instant) -> Self {
+    fn from(current_time: Instant) -> Self {
         match current_time {
-            Instant::Actual(_) => panic! {"chronobreak: Cannot convert non-mocked Instant into Duration"},
+            Instant::Actual(_) => {
+                panic! {"chronobreak: Cannot convert non-mocked Instant into Duration"}
+            }
             Instant::Mocked(current_time) => current_time,
         }
     }

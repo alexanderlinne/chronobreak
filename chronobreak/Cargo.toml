@@ -13,7 +13,7 @@ chronobreak_derive = { path = "../chronobreak_derive" }
 
 # supported crates
 crossbeam = { version = "0.7", optional = true }
-futures = { version = "0.3", optional = true }
+futures = { version = "0.3", features = ["thread-pool"], optional = true }
 futures-timer = { version = "3.0", optional = true }
 parking_lot = { version = "0.11", optional = true }
 

@@ -223,6 +223,7 @@ pub fn synchroize() {
 }
 
 #[allow(dead_code)]
+#[derive(Clone)]
 pub(crate) struct ClockHandle(LocalState);
 
 #[allow(dead_code)]

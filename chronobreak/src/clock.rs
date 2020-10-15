@@ -186,6 +186,14 @@ pub fn advance_to(time: Instant) {
     }
 }
 
+// Temporarily unfreezes the clock, if frozen, then advances the clock to the
+// given timestamp. If the clock is not frozen, this function is equal to
+// advance_to.
+pub(crate) fn unfreeze_advance_to(time: Instant) {
+    let _guard = unfreeze_scoped();
+    advance_to(time);
+}
+
 // Advances the local clock by the given duration. Sets the global clock if
 // the new local time is greater.
 pub fn advance(dur: Duration) {

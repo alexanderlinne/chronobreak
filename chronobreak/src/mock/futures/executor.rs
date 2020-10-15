@@ -6,6 +6,8 @@ use futures::{
     task::{Spawn, SpawnError},
 };
 
+pub use futures::executor::*;
+
 #[derive(Default, Debug)]
 pub struct ThreadPoolBuilder {
     builder: executor::ThreadPoolBuilder,

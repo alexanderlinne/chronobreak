@@ -69,8 +69,7 @@ impl<T> JoinHandle<T> {
         let result = self.1.join();
         if clock::is_mocked() {
             if let Some(time) = *self.0.lock().unwrap() {
-                let _guard = clock::unfreeze_scoped();
-                clock::advance_to(time);
+                clock::unfreeze_advance_to(time);
             }
         }
         result

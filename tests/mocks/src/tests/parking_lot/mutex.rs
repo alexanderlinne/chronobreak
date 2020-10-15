@@ -9,8 +9,7 @@ mod mock {
 }
 use mock::*;
 
-impl_debug! {condvar, Condvar::new()}
-impl_default! {condvar, Condvar}
+impl_debug! {mutex, Mutex::new(())}
 
 #[chronobreak::test]
 fn lock_sycs_participants() {
@@ -34,4 +33,16 @@ fn test_impl() {
     data.1.wait();
     data.0.lock();
     assert_clock_eq! {Duration::from_millis(1)}
+}
+
+#[chronobreak::test]
+fn guard_impls_deref() {
+    let mutex = Mutex::new(true);
+    assert_eq! {*mutex.lock(), true};
+}
+
+#[chronobreak::test]
+fn guard_impls_deref_mut() {
+    let mutex = Mutex::new(true);
+    *mutex.lock() = false;
 }

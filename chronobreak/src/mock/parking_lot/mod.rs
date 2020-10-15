@@ -1,5 +1,6 @@
 use crate::clock;
 use crate::mock::std::time::*;
+use std::ops::{Deref, DerefMut};
 
 pub use parking_lot::*;
 
@@ -36,6 +37,20 @@ impl<'a, T> From<parking_lot::MutexGuard<'a, MutexData<T>>> for MutexGuard<'a, T
             clock::unfreeze_advance_to(guard.1.into());
         }
         MutexGuard { guard }
+    }
+}
+
+impl<'a, T> Deref for MutexGuard<'a, T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.guard.deref().0
+    }
+}
+
+impl<'a, T> DerefMut for MutexGuard<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.guard.deref_mut().0
     }
 }
 

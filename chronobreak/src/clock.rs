@@ -213,23 +213,6 @@ pub fn get() -> Duration {
     }
 }
 
-// Synchronizes the global and local time. Sets both to the greater of both
-// timestamps.
-pub fn synchroize() {
-    if is_mocked() {
-        STATE.with(|state| {
-            let mut state = state.borrow_mut();
-            let mut global_time = state.shared_state.time.lock().unwrap();
-            let current_time = std::cmp::max(*global_time, state.time);
-            *global_time = current_time;
-            drop(global_time);
-            state.time = current_time;
-        });
-    } else {
-        panic! {"chronobreak::clock::synchroize requires the clock to be mocked"};
-    }
-}
-
 #[allow(dead_code)]
 #[derive(Clone)]
 pub(crate) struct ClockHandle(LocalState);

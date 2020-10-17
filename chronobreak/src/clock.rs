@@ -107,6 +107,9 @@ impl Drop for UnfreezeGuard {
     }
 }
 
+/// Asserts that the current local time is equal to an expression.
+///
+/// On panic, this macro will print the expected and actual local time.
 #[macro_export]
 macro_rules! assert_clock_eq {
     ($dur:expr) => ({

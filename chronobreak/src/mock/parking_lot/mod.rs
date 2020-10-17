@@ -12,6 +12,7 @@ pub use parking_lot::{
 
 type MutexData<T> = (T, Duration);
 
+/// **Mock** of [`parking_lot::Mutex`](https://docs.rs/parking_lot/0.11.0/parking_lot/type.Mutex.html)
 #[derive(Debug)]
 pub struct Mutex<T> {
     mutex: parking_lot::Mutex<MutexData<T>>,
@@ -33,6 +34,7 @@ impl<T> Mutex<T> {
     }
 }
 
+/// **Mock** of [`parking_lot::MutexGuard`](https://docs.rs/parking_lot/0.11.0/parking_lot/type.MutexGuard.html)
 pub struct MutexGuard<'a, T> {
     guard: parking_lot::MutexGuard<'a, MutexData<T>>,
 }
@@ -68,6 +70,7 @@ impl<'a, T> Drop for MutexGuard<'a, T> {
     }
 }
 
+/// **Mock** of [`parking_lot::Condvar`](https://docs.rs/parking_lot/0.11.0/parking_lot/struct.Condvar.html)
 #[derive(Debug)]
 pub struct Condvar {
     condvar: parking_lot::Condvar,

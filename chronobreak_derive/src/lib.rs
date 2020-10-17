@@ -35,6 +35,30 @@ impl TryInto<FnArgs> for AttributeArgs {
     }
 }
 
+/// Enables the mock on an import or a group of imports.
+///
+/// This is a convenience macro for mocking imports. It causes the use
+/// statement to be replaced by the mocked version when in test
+/// configuration.
+///
+/// It can also be applied to inline modules, which will mock all imports in the
+/// top-level module. This allows to group all imports that should be mocked.
+///
+/// # Examples
+///
+/// ```no_run
+/// # use chronobreak::chronobreak;
+/// #[chronobreak]
+/// use std::thread::spawn;
+///
+/// #[chronobreak]
+/// mod mock {
+///     pub use std::sync::atomic::{AtomicUsize, Ordering};
+///     pub use std::sync::Arc;
+///     pub use std::time;
+/// }
+/// use mock::*;
+/// ```
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn chronobreak(args: TokenStream, tokens: TokenStream) -> TokenStream {
@@ -120,6 +144,31 @@ fn into_mocked_use_path(use_path: &UsePath) -> proc_macro2::TokenStream {
     quote! {chronobreak::mock:: #use_path}
 }
 
+/// Enables an (async) test function with a mocked clock.
+///
+/// Async tests require [async-std](https://crates.io/crates/async-std) as a
+/// dependency.
+///
+/// # Examples
+///
+/// ```no_run
+/// #[chronobreak::test]
+/// fn test() {
+///     // [...]
+///     clock::advance(Duration::from_millis(1));
+///     // [...]
+/// }
+///
+/// #[chronobreak::test]
+/// async fn async_test() {
+///     // [...]
+/// }
+///
+/// #[chronobreak::test(frozen)]
+/// fn test_with_frozen_clock() {
+///     // [...]
+/// }
+/// ```
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn test(args: TokenStream, tokens: TokenStream) -> TokenStream {

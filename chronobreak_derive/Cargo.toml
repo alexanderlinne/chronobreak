@@ -18,6 +18,7 @@ syn = "1.0"
 quote = "1.0"
 
 [dev-dependencies]
+async-std = "1.6"
 chronobreak = { path = "../chronobreak" }
 trybuild = "1.0"
 

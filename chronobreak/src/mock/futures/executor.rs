@@ -10,6 +10,7 @@ pub use futures::executor::{
     block_on, block_on_stream, enter, BlockingStream, Enter, EnterError, LocalPool, LocalSpawner,
 };
 
+/// **Mock** of [`futures::executor::ThreadPoolBuilder`](https://docs.rs/futures/0.3.6/futures/executor/struct.ThreadPoolBuilder.html)
 #[derive(Default, Debug)]
 pub struct ThreadPoolBuilder {
     builder: executor::ThreadPoolBuilder,
@@ -74,6 +75,7 @@ impl ThreadPoolBuilder {
     }
 }
 
+/// **Mock** of [`futures::executor::ThreadPool`](https://docs.rs/futures/0.3.6/futures/executor/struct.ThreadPool.html)
 #[derive(Clone, Debug)]
 pub struct ThreadPool {
     pool: executor::ThreadPool,

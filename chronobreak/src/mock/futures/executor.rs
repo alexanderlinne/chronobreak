@@ -6,7 +6,9 @@ use futures::{
     task::{Spawn, SpawnError},
 };
 
-pub use futures::executor::*;
+pub use futures::executor::{
+    block_on, block_on_stream, enter, BlockingStream, Enter, EnterError, LocalPool, LocalSpawner,
+};
 
 #[derive(Default, Debug)]
 pub struct ThreadPoolBuilder {

@@ -17,23 +17,3 @@ fn mock_is_not_global() {
     .unwrap();
     assert_clock_eq!(Duration::from_nanos(0));
 }
-
-#[chronobreak::test(frozen)]
-fn main_thread_is_registered() {
-    let main_thread = thread::current();
-    thread::spawn(move || {
-        main_thread.expect_blocking_wait();
-        clock::advance(Duration::from_millis(1))
-    });
-    clock::advance(Duration::from_millis(1));
-}
-
-#[chronobreak::test(frozen)]
-fn frozen_wait_is_blocking() {
-    let thread = thread::spawn(move || {
-        clock::advance(Duration::from_nanos(1));
-    });
-    thread.expect_blocking_wait();
-    clock::advance(Duration::from_nanos(1));
-    thread.join().unwrap();
-}

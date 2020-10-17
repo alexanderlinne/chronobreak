@@ -3,8 +3,13 @@ use crate::mock::std::sync::{Arc, Barrier, Mutex};
 use crate::mock::std::time::*;
 use std::thread;
 
-pub use std::thread::{panicking, Builder, ThreadId};
+#[allow(deprecated)]
+pub use std::thread::{
+    panicking, park, park_timeout, park_timeout_ms, sleep_ms, yield_now, AccessError, LocalKey,
+    Result, ThreadId,
+};
 
+/// **Mock** of [`std::thread::Thread`](https://doc.rust-lang.org/std/thread/struct.Thread.html)
 #[derive(Clone, Debug)]
 pub struct Thread(thread::Thread);
 
@@ -20,16 +25,14 @@ impl Thread {
     pub fn name(&self) -> Option<&str> {
         self.0.name()
     }
-
-    pub fn expect_blocking_wait(&self) {
-        clock::expect_blocking_wait_on(self.0.id())
-    }
 }
 
+/// **Mock** of [`std::thread::current`](https://doc.rust-lang.org/std/thread/fn.current.html)
 pub fn current() -> Thread {
     Thread(thread::current())
 }
 
+/// **Mock** of [`std::thread::sleep`](https://doc.rust-lang.org/std/thread/fn.sleep.html)
 pub fn sleep(dur: Duration) {
     if clock::is_mocked() {
         clock::advance(dur);
@@ -38,6 +41,7 @@ pub fn sleep(dur: Duration) {
     }
 }
 
+/// **Mock** of [`std::thread::spawn`](https://doc.rust-lang.org/std/thread/fn.spawn.html)
 pub fn spawn<F, T>(f: F) -> JoinHandle<T>
 where
     F: FnOnce() -> T,
@@ -59,12 +63,18 @@ where
         result
     });
     barrier.wait();
-    JoinHandle(join_cell, handle)
+    let thread = handle.thread().clone();
+    JoinHandle(join_cell, handle, Thread(thread))
 }
 
-pub struct JoinHandle<T>(Arc<Mutex<Option<Instant>>>, thread::JoinHandle<T>);
+/// **Mock** of [`std::thread::JoinHandle`](https://doc.rust-lang.org/std/thread/struct.JoinHandle.html)
+pub struct JoinHandle<T>(Arc<Mutex<Option<Instant>>>, thread::JoinHandle<T>, Thread);
 
 impl<T> JoinHandle<T> {
+    pub fn thread(&self) -> &Thread {
+        &self.2
+    }
+
     pub fn join(self) -> thread::Result<T> {
         let result = self.1.join();
         if clock::is_mocked() {
@@ -73,9 +83,5 @@ impl<T> JoinHandle<T> {
             }
         }
         result
-    }
-
-    pub fn expect_blocking_wait(&self) {
-        clock::expect_blocking_wait_on(self.1.thread().id())
     }
 }

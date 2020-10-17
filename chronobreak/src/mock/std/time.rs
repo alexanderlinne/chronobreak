@@ -3,7 +3,7 @@ use std::cmp;
 use std::ops::Add;
 use std::time;
 
-pub use time::Duration;
+pub use time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 
 macro_rules! instant_delegate {
     ($self:ident, $lhs:ident, $rhs:ident, $actual:expr, $mocked:expr) => {
@@ -23,6 +23,7 @@ macro_rules! instant_delegate {
     };
 }
 
+/// **Mock** of [`std::time::Instant`](https://doc.rust-lang.org/std/time/struct.Instant.html)
 #[derive(Copy, Clone, Debug)]
 pub enum Instant {
     Actual(time::Instant),

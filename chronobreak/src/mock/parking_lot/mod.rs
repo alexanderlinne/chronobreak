@@ -2,7 +2,13 @@ use crate::clock;
 use crate::mock::std::time::*;
 use std::ops::{Deref, DerefMut};
 
-pub use parking_lot::*;
+pub use parking_lot::{
+    const_fair_mutex, const_mutex, const_reentrant_mutex, const_rwlock, lock_api, FairMutex,
+    FairMutexGuard, MappedFairMutexGuard, MappedMutexGuard, MappedReentrantMutexGuard,
+    MappedRwLockReadGuard, MappedRwLockWriteGuard, Once, OnceState, RawFairMutex, RawMutex,
+    RawRwLock, RawThreadId, ReentrantMutex, ReentrantMutexGuard, RwLock, RwLockReadGuard,
+    RwLockUpgradableReadGuard, RwLockWriteGuard, WaitTimeoutResult,
+};
 
 type MutexData<T> = (T, Duration);
 

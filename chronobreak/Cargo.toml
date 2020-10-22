@@ -8,7 +8,7 @@ repository = "https://github.com/alexanderlinne/chronobreak"
 edition = "2018"
 
 [dependencies]
-async-std = "1.6"
+async-std = { version = "1.6", features = ["unstable"] }
 chronobreak_derive = { path = "../chronobreak_derive" }
 
 # supported crates

@@ -1,8 +1,12 @@
 extern crate chronobreak_derive;
 
-/// The mocked clock.
 #[macro_use]
+mod macros;
+
+/// The mocked clock.
 pub mod clock;
+mod shared_clock;
+
 /// Mocks for the standard library and several popular crates.
 pub mod mock;
 

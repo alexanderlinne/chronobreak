@@ -43,7 +43,7 @@ impl SharedClock {
                 self.freeze_cond.notify_all();
                 let mut wakers = self.waker.lock().unwrap();
                 while let Some(timed_waker) = wakers.peek() {
-                    if timed_waker.timeout < time {
+                    if timed_waker.timeout <= time {
                         if let Some(waker) = wakers.pop().unwrap().waker.upgrade() {
                             waker.wake_by_ref();
                         }
@@ -96,7 +96,7 @@ impl SharedClock {
     ) -> (Option<TimedWakerHandle>, Instant) {
         if let Instant::Mocked(timeout) = timeout {
             let current_time = *self.time.lock().unwrap();
-            if current_time < timeout {
+            if current_time <= timeout {
                 let result = TimedWakerHandle(Arc::new(waker));
                 self.waker.lock().unwrap().push(TimedWaker {
                     waker: Arc::downgrade(&result.0),

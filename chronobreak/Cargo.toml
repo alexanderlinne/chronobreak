@@ -19,6 +19,7 @@ parking_lot = { version = "0.11", optional = true }
 
 [features]
 default = ["crossbeam", "futures", "futures-timer", "parking_lot"]
+extended-apis = []
 
 [package.metadata.docs.rs]
 all-features = true

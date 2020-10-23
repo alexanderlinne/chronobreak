@@ -1,8 +1,10 @@
 use crate::mock::std::time::*;
 use crate::shared_clock::{SharedClock, TimedWakerHandle};
 use std::cell::RefCell;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::Arc;
-use std::task::Waker;
+use std::task::{Context, Poll};
 use std::thread::ThreadId;
 
 thread_local! {
@@ -16,7 +18,7 @@ struct LocalState {
     shared_clock: Arc<SharedClock>,
 }
 
-#[must_use]
+#[must_use = "if unused the mocked clock will be immediately dropped"]
 pub struct ClockGuard {}
 
 impl Drop for ClockGuard {
@@ -27,7 +29,7 @@ impl Drop for ClockGuard {
     }
 }
 
-#[must_use]
+#[must_use = "if unused the mocked clock will immediately be unfrozen"]
 pub struct UnfreezeGuard {
     was_frozen: bool,
 }
@@ -35,6 +37,63 @@ pub struct UnfreezeGuard {
 impl Drop for UnfreezeGuard {
     fn drop(&mut self) {
         set_frozen(self.was_frozen)
+    }
+}
+
+pub struct DelayFuture {
+    timeout: Instant,
+    waker_handle: Option<TimedWakerHandle>,
+}
+
+impl DelayFuture {
+    pub fn new(delay: Duration) -> Self {
+        Self {
+            timeout: Instant::now() + delay,
+            waker_handle: None,
+        }
+    }
+
+    pub fn reset(&mut self, delay: Duration) {
+        STATE.with(|state| {
+            let state = state.borrow();
+            let shared_clock = &state
+                .as_ref()
+                .expect("chronobreak::DelayFuture::poll requires the clock to be mocked")
+                .shared_clock;
+            self.timeout = Instant::now() + delay;
+            if let Some(handle) = self.waker_handle.take() {
+                self.waker_handle = shared_clock
+                    .register_timed_waker(handle.waker(), self.timeout)
+                    .0;
+            }
+        })
+    }
+}
+
+impl Future for DelayFuture {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
+        if !is_frozen() {
+            advance_to(self.timeout);
+            return Poll::Ready(());
+        }
+        let (handle, current_time) = STATE.with(|state| {
+            let state = state.borrow();
+            let shared_clock = &state
+                .as_ref()
+                .expect("chronobreak::DelayFuture::poll requires the clock to be mocked")
+                .shared_clock;
+            shared_clock.register_timed_waker(cx.waker().clone(), self.timeout)
+        });
+        let this = Pin::into_inner(self);
+        this.waker_handle = handle;
+        unfreeze_advance_to(current_time);
+        if this.waker_handle.is_some() {
+            Poll::Pending
+        } else {
+            Poll::Ready(())
+        }
     }
 }
 
@@ -176,7 +235,7 @@ pub(crate) fn register_thread(handle: ClockHandle) {
 }
 
 #[allow(dead_code)]
-pub(crate) fn expect_blocking_advance_on(id: ThreadId) {
+pub(crate) fn expect_timed_wait_on(id: ThreadId) {
     STATE.with(|state| {
         state
             .borrow()
@@ -185,27 +244,8 @@ pub(crate) fn expect_blocking_advance_on(id: ThreadId) {
                 "chronobreak::clock::expect_blocking_advance_on requires the clock to be mocked",
             )
             .shared_clock
-            .wait_for_blocking(id)
+            .expect_timed_wait_on(id)
     });
-}
-
-/// Registers the given waker to be woken as soon as the shared clock passes the given timeout.
-/// If the given timeout has already passed, None is returned.
-///
-/// Dropping the handle causes the waker to no loger be woken.
-///
-/// This function will advance the local time to the current global time without freezing.
-pub(crate) fn register_timed_waker(waker: Waker, timeout: Instant) -> Option<TimedWakerHandle> {
-    let (handle, current_time) = STATE.with(|state| {
-        state
-            .borrow()
-            .as_ref()
-            .expect("chronobreak::clock::register_timed_waker requires the clock to be mocked")
-            .shared_clock
-            .register_timed_waker(waker, timeout)
-    });
-    unfreeze_advance_to(current_time);
-    handle
 }
 
 #[cfg(test)]
@@ -219,7 +259,7 @@ mod tests {
         clock::freeze();
         let main_thread = thread::current();
         thread::spawn(move || {
-            clock::expect_blocking_advance_on(main_thread.id());
+            clock::expect_timed_wait_on(main_thread.id());
             clock::advance(Duration::from_millis(1))
         });
         clock::advance(Duration::from_millis(1));
@@ -232,7 +272,7 @@ mod tests {
             clock::freeze();
             clock::advance(Duration::from_nanos(1));
         });
-        clock::expect_blocking_advance_on(thread.thread().id());
+        clock::expect_timed_wait_on(thread.thread().id());
         clock::advance(Duration::from_nanos(1));
         thread.join().unwrap();
     }

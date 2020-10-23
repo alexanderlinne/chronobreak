@@ -1,5 +1,6 @@
 use crate::mock::std::time::*;
 use std::collections::{BinaryHeap, HashMap};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock, Weak};
 use std::task::Waker;
 use std::thread;
@@ -9,13 +10,13 @@ use std::thread::ThreadId;
 pub struct SharedClock {
     time: Mutex<Duration>,
     freeze_cond: Condvar,
-    blocking: BlockingWaitData,
-    waker: Mutex<BinaryHeap<TimedWaker>>,
+    timed_waits: Arc<TimedWaitData>,
+    wakers: Mutex<BinaryHeap<TimedWaker>>,
 }
 
 impl SharedClock {
     pub fn register_thread(&self) {
-        self.blocking
+        self.timed_waits
             .write()
             .unwrap()
             .insert(thread::current().id(), Default::default());
@@ -25,7 +26,7 @@ impl SharedClock {
         if let Instant::Mocked(time) = time {
             let mut global_time = self.time.lock().unwrap();
             if *global_time < time {
-                let _guard = self.blocking_wait();
+                let _guard = self.notify_timed_wait();
                 while *global_time < time {
                     global_time = self.freeze_cond.wait(global_time).unwrap();
                 }
@@ -41,7 +42,7 @@ impl SharedClock {
             if *global_time < time {
                 *global_time = time;
                 self.freeze_cond.notify_all();
-                let mut wakers = self.waker.lock().unwrap();
+                let mut wakers = self.wakers.lock().unwrap();
                 while let Some(timed_waker) = wakers.peek() {
                     if timed_waker.timeout <= time {
                         if let Some(waker) = wakers.pop().unwrap().waker.upgrade() {
@@ -57,38 +58,28 @@ impl SharedClock {
         }
     }
 
-    pub fn blocking_wait(&self) -> BlockingWaitGuard<'_> {
-        let lock = self.blocking.read().unwrap();
-        let blocking_data = lock
+    pub fn notify_timed_wait(&self) -> TimedWaitGuard {
+        let lock = self.timed_waits.read().unwrap();
+        let thread_info = lock
             .get(&thread::current().id())
             .expect("chronobreak internal error: thread was not registered");
-        let mut block_state = blocking_data.0.lock().unwrap();
-        block_state.1 += 1;
-        block_state.0 = true;
-        blocking_data.1.notify_all();
-        BlockingWaitGuard {
-            data: &self.blocking,
-        }
+        let _lock = thread_info.1.lock().unwrap();
+        thread_info.0.fetch_add(1, Ordering::SeqCst);
+        thread_info.2.notify_all();
+        TimedWaitGuard::new(self.timed_waits.clone())
     }
 
-    pub fn wait_for_blocking(&self, id: ThreadId) {
-        let lock = self.blocking.read().unwrap();
-        let blocking_data = lock
+    pub fn expect_timed_wait_on(&self, id: ThreadId) {
+        let lock = self.timed_waits.read().unwrap();
+        let timed_waits = lock
             .get(&id)
             .expect("chronobreak internal error: thread was not registered");
-        let mut lock = blocking_data.0.lock().unwrap();
-        let block_id = lock.1 + 1;
-        while !lock.0 && lock.1 != block_id {
-            lock = blocking_data.1.wait(lock).unwrap();
+        let mut lock = timed_waits.1.lock().unwrap();
+        while timed_waits.0.load(Ordering::SeqCst) == 0 {
+            lock = timed_waits.2.wait(lock).unwrap();
         }
     }
 
-    /// Registers the given waker to be woken as soon as the global clock passes the given timeout. If the
-    /// timeout is in the future compared to the global time, a handle to the waker and the current
-    /// global time is returned. Otherwise, i.e. when the global time has already passed the timeout,
-    /// None is returned.
-    ///
-    /// If the returned handle is dropped, the waker will no longer be woken.
     pub fn register_timed_waker(
         &self,
         waker: Waker,
@@ -96,10 +87,15 @@ impl SharedClock {
     ) -> (Option<TimedWakerHandle>, Instant) {
         if let Instant::Mocked(timeout) = timeout {
             let current_time = *self.time.lock().unwrap();
-            if current_time <= timeout {
-                let result = TimedWakerHandle(Arc::new(waker));
-                self.waker.lock().unwrap().push(TimedWaker {
-                    waker: Arc::downgrade(&result.0),
+            if current_time < timeout {
+                let mut wakers = self.wakers.lock().unwrap();
+                let guard = self.notify_timed_wait();
+                let result = TimedWakerHandle {
+                    waker: Arc::new(waker),
+                    guard,
+                };
+                wakers.push(TimedWaker {
+                    waker: Arc::downgrade(&result.waker),
                     timeout,
                 });
                 (Some(result), Instant::Mocked(current_time))
@@ -107,25 +103,35 @@ impl SharedClock {
                 (None, Instant::Mocked(current_time))
             }
         } else {
-            panic! {"chronobreak::shared_clock::register_timed_waker requires a mocked Instant"}
+            panic! {"shared_clock::register_timed_waker requires a mocked Instant"};
         }
     }
 }
 
-type BlockingWaitData = RwLock<HashMap<ThreadId, (Mutex<(bool, usize)>, Condvar)>>;
+type TimedWaitData = RwLock<HashMap<ThreadId, (AtomicUsize, Mutex<()>, Condvar)>>;
 
-pub struct BlockingWaitGuard<'a> {
-    data: &'a BlockingWaitData,
+#[must_use = "if unused the timed wait state will be immediately reset"]
+pub struct TimedWaitGuard {
+    created_on: ThreadId,
+    data: Arc<TimedWaitData>,
 }
 
-impl<'a> Drop for BlockingWaitGuard<'a> {
+impl TimedWaitGuard {
+    pub fn new(data: Arc<TimedWaitData>) -> Self {
+        Self {
+            created_on: thread::current().id(),
+            data,
+        }
+    }
+}
+
+impl Drop for TimedWaitGuard {
     fn drop(&mut self) {
         let lock = self.data.read().unwrap();
-        let blocking_data = lock
-            .get(&thread::current().id())
+        let thread_info = lock
+            .get(&self.created_on)
             .expect("chronobreak internal error: thread was not registered");
-        let mut block_state = blocking_data.0.lock().unwrap();
-        block_state.0 = false;
+        thread_info.0.fetch_sub(1, Ordering::SeqCst);
     }
 }
 
@@ -154,10 +160,14 @@ impl PartialEq<TimedWaker> for TimedWaker {
     }
 }
 
-pub struct TimedWakerHandle(Arc<Waker>);
+pub struct TimedWakerHandle {
+    waker: Arc<Waker>,
+    #[allow(dead_code)]
+    guard: TimedWaitGuard,
+}
 
 impl TimedWakerHandle {
     pub fn waker(&self) -> Waker {
-        (*self.0).clone()
+        (*self.waker).clone()
     }
 }

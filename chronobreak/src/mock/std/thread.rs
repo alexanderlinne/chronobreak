@@ -25,6 +25,12 @@ impl Thread {
     pub fn name(&self) -> Option<&str> {
         self.0.name()
     }
+
+    #[cfg(feature = "extended-apis")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "extended-apis")))]
+    pub fn expect_timed_wait(&self) {
+        clock::expect_timed_wait_on(self.0.id())
+    }
 }
 
 /// **Mock** of [`std::thread::current`](https://doc.rust-lang.org/std/thread/fn.current.html)
@@ -83,5 +89,11 @@ impl<T> JoinHandle<T> {
             }
         }
         result
+    }
+
+    #[cfg(feature = "extended-apis")]
+    #[cfg_attr(docsrs, doc(cfg(feature = "extended-apis")))]
+    pub fn expect_timed_wait(&self) {
+        clock::expect_timed_wait_on(self.2.id())
     }
 }

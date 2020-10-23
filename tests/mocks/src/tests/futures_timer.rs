@@ -76,4 +76,15 @@ mod delay {
         assert_clock_eq! {Duration::from_nanos(2)};
         assert_eq! {boolean_waker.woken.load(Ordering::Relaxed), true};
     }
+
+    #[chronobreak::test]
+    fn frozen_delay_is_blocking() {
+        let thread = thread::spawn(move || {
+            clock::freeze();
+            futures::executor::block_on(Delay::new(Duration::from_nanos(1)));
+        });
+        thread.expect_timed_wait();
+        clock::advance(Duration::from_nanos(1));
+        thread.join().unwrap();
+    }
 }

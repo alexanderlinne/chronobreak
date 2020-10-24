@@ -6,11 +6,18 @@ use std::task::Waker;
 use std::thread;
 use std::thread::ThreadId;
 
+/// State of the shared clock.
 #[derive(Default)]
 pub struct SharedClock {
+    /// The current shared time.
     time: Mutex<Duration>,
+    /// Condvar, which all threads who attempt to advance the shared clock
+    /// while frozen will wait on.
     freeze_cond: Condvar,
+    /// Per-thread data for notifying and waiting on timed waits.
     timed_waits: Arc<TimedWaitData>,
+    /// Queue of wakers that have to be executed as soon as the clock reaches
+    /// some given time.
     wakers: Mutex<BinaryHeap<TimedWaker>>,
 }
 
@@ -110,6 +117,8 @@ impl SharedClock {
 
 type TimedWaitData = RwLock<HashMap<ThreadId, (AtomicUsize, Mutex<()>, Condvar)>>;
 
+/// A RAII implementation for a timed wait. When this guard is dropped, the
+/// timed wait counter for the thread it was created on will be decreased.
 #[must_use = "if unused the timed wait state will be immediately reset"]
 pub struct TimedWaitGuard {
     created_on: ThreadId,
@@ -135,6 +144,7 @@ impl Drop for TimedWaitGuard {
     }
 }
 
+/// A waker with a associated execution time.
 struct TimedWaker {
     waker: Weak<Waker>,
     timeout: Duration,
@@ -160,6 +170,8 @@ impl PartialEq<TimedWaker> for TimedWaker {
     }
 }
 
+/// Handle to a timed waker. If this handle is dropped, the waker will no longer
+/// be executed.
 pub struct TimedWakerHandle {
     waker: Arc<Waker>,
     #[allow(dead_code)]

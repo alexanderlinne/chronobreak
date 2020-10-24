@@ -10,7 +10,7 @@ macro_rules! test_incompatible {
             #[should_panic]
             fn [<instant_ $op _incompatible_1>]() {
                 let lhs = Instant::now();
-                let _clock = clock::mocked().unwrap();
+                let _clock = clock::mock().unwrap();
                 let rhs = Instant::now();
                 let _ =lhs.$op($var_qual!(rhs));
             }
@@ -18,7 +18,7 @@ macro_rules! test_incompatible {
             #[should_panic]
             fn [<instant_ $op _incompatible_2>]() {
                 let lhs = Instant::now();
-                let _clock = clock::mocked().unwrap();
+                let _clock = clock::mock().unwrap();
                 let rhs = Instant::now();
                 let _ = rhs.$op($var_qual!(lhs));
             }

@@ -18,6 +18,8 @@ struct LocalState {
     shared_clock: Arc<SharedClock>,
 }
 
+/// A RAII guard returned by [`mock`](fn.mock.html). When this structure is
+/// dropped, the mocked clock is destroyed.
 #[must_use = "if unused the mocked clock will be immediately dropped"]
 pub struct ClockGuard {}
 
@@ -30,7 +32,7 @@ impl Drop for ClockGuard {
 }
 
 #[must_use = "if unused the mocked clock will immediately be unfrozen"]
-pub struct UnfreezeGuard {
+pub(crate) struct UnfreezeGuard {
     was_frozen: bool,
 }
 
@@ -40,7 +42,7 @@ impl Drop for UnfreezeGuard {
     }
 }
 
-pub struct DelayFuture {
+pub(crate) struct DelayFuture {
     timeout: Instant,
     waker_handle: Option<TimedWakerHandle>,
 }
@@ -106,7 +108,7 @@ pub fn is_mocked() -> bool {
 /// again before the returned guard is dropped. Dropping the guard resets the
 /// clock to the system clock and the internal values of the mocked clock to
 /// Duration::default().
-pub fn mocked() -> Result<ClockGuard, ()> {
+pub fn mock() -> Result<ClockGuard, ()> {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         if state.is_some() {
@@ -120,12 +122,15 @@ pub fn mocked() -> Result<ClockGuard, ()> {
     })
 }
 
-/// Freezes the clock on the current thread.
+/// Similar to [`mock`](fn.mock.html) but also freezes the clock on the
+/// current thread.
 /// This causes all mocked routines on the current thread that perform
 /// timed waiting to not increase the local clock automatically. Instead they
 /// wait for the global clock to be manually advanced from another thread.
-pub fn freeze() {
-    set_frozen(true)
+pub fn frozen() -> Result<ClockGuard, ()> {
+    let result = mock();
+    set_frozen(true);
+    result
 }
 
 /// Returns wether the clock is frozen on the current thread.
@@ -137,11 +142,6 @@ pub fn is_frozen() -> bool {
             .expect("chronobreak::clock::is_frozen requires the clock to be mocked")
             .frozen
     })
-}
-
-/// Unfreezes the clock on the current thread.
-pub fn unfreeze() {
-    set_frozen(false)
 }
 
 /// Unfreezes the clock on the current thread until the returned guard is dropped.
@@ -161,7 +161,7 @@ fn set_frozen(frozen: bool) {
     })
 }
 
-/// Selts the local and shared clock to the given timestamp if it is greater
+/// Sets the local and shared clock to the given timestamp if it is greater
 /// than the current local or global time, respectively.
 pub fn advance_to(time: Instant) {
     STATE.with(|state| {
@@ -255,8 +255,7 @@ mod tests {
 
     #[test]
     fn main_thread_is_registered() {
-        let _clock = clock::mocked().unwrap();
-        clock::freeze();
+        let _clock = clock::frozen().unwrap();
         let main_thread = thread::current();
         thread::spawn(move || {
             clock::expect_timed_wait_on(main_thread.id());
@@ -267,12 +266,12 @@ mod tests {
 
     #[test]
     fn frozen_wait_is_blocking() {
-        let _clock = clock::mocked().unwrap();
+        let _clock = clock::frozen().unwrap();
+        let main_thread = thread::current();
         let thread = thread::spawn(move || {
-            clock::freeze();
+            main_thread.expect_timed_wait();
             clock::advance(Duration::from_nanos(1));
         });
-        clock::expect_timed_wait_on(thread.thread().id());
         clock::advance(Duration::from_nanos(1));
         thread.join().unwrap();
     }

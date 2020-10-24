@@ -197,10 +197,10 @@ fn derive_item_fn(args: &FnArgs, item_fn: &ItemFn) -> Item {
     let attrs = &item_fn.attrs;
     let vis = &item_fn.vis;
     let sig = &item_fn.sig;
-    let freeze_stmt = if args.frozen {
-        quote! {clock::freeze();}
+    let mock_fn = if args.frozen {
+        quote! {frozen}
     } else {
-        quote! {}
+        quote! {mock}
     };
     let stmts = &item_fn.block.stmts;
     Item::Fn(parse_quote! {
@@ -208,8 +208,7 @@ fn derive_item_fn(args: &FnArgs, item_fn: &ItemFn) -> Item {
         #(#attrs)*
         #vis #sig {
             use ::chronobreak::clock;
-            let _clock = clock::mocked().unwrap();
-            #freeze_stmt
+            let _clock = clock::#mock_fn().unwrap();
             #(#stmts)*
         }
     })

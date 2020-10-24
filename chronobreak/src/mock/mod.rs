@@ -1,7 +1,3 @@
-/// Mocks for [`crossbeam`](https://crates.io/crates/crossbeam) 0.7
-#[cfg(feature = "crossbeam")]
-pub mod crossbeam;
-
 /// Mocks for [`futures`](https://crates.io/crates/futures) 0.3
 #[cfg(feature = "futures")]
 pub mod futures;

@@ -44,7 +44,7 @@ mod delay {
         assert_clock_eq!(Duration::from_nanos(1));
     }
 
-    #[chronobreak::test]
+    #[chronobreak::test(frozen)]
     async fn frozen_poll() {
         let barrier = Arc::new(Barrier::new(2));
         let barrier2 = barrier.clone();
@@ -57,7 +57,6 @@ mod delay {
             barrier.wait();
         });
         use futures::Future;
-        clock::freeze();
         let mut delay = Delay::new(Duration::from_nanos(2));
         let boolean_waker = Arc::new(BooleanWaker::default());
         let waker = waker(boolean_waker.clone());
@@ -77,14 +76,14 @@ mod delay {
         assert_eq! {boolean_waker.woken.load(Ordering::Relaxed), true};
     }
 
-    #[chronobreak::test]
+    #[chronobreak::test(frozen)]
     fn frozen_delay_is_blocking() {
+        let main_thread = thread::current();
         let thread = thread::spawn(move || {
-            clock::freeze();
-            futures::executor::block_on(Delay::new(Duration::from_nanos(1)));
+            main_thread.expect_timed_wait();
+            clock::advance(Duration::from_nanos(1));
         });
-        thread.expect_timed_wait();
-        clock::advance(Duration::from_nanos(1));
+        futures::executor::block_on(Delay::new(Duration::from_nanos(1)));
         thread.join().unwrap();
     }
 }

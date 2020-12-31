@@ -2,5 +2,6 @@
 members = [
     "chronobreak",
     "chronobreak_derive",
+    "example",
     "tests/mocks",
 ]

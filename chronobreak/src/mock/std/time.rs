@@ -30,38 +30,6 @@ pub enum Instant {
     Mocked(Duration),
 }
 
-impl Into<time::Instant> for Instant {
-    fn into(self) -> time::Instant {
-        match self {
-            Self::Actual(instant) => instant,
-            Self::Mocked(_) => {
-                panic! {"chronobreak: Cannot convert mocked Instant into std::time::Instant"}
-            }
-        }
-    }
-}
-
-impl From<Instant> for Duration {
-    fn from(current_time: Instant) -> Self {
-        match current_time {
-            Instant::Actual(_) => {
-                panic! {"chronobreak: Cannot convert non-mocked Instant into Duration"}
-            }
-            Instant::Mocked(current_time) => current_time,
-        }
-    }
-}
-
-impl From<Duration> for Instant {
-    fn from(current_time: Duration) -> Self {
-        if clock::is_mocked() {
-            Instant::Mocked(current_time)
-        } else {
-            panic! {"chronobreak: Cannot convert Duration into non-mocked Instant"}
-        }
-    }
-}
-
 impl Instant {
     pub fn now() -> Self {
         if clock::is_mocked() {

@@ -8,9 +8,10 @@ use mock::*;
 
 #[chronobreak::test]
 fn mocked_transfers_on_spawn() {
+    let start_time = Instant::now();
     clock::advance(Duration::from_nanos(1));
     thread::spawn(move || {
-        assert_clock_eq!(Duration::from_nanos(1));
+        assert_clock_eq!(start_time + Duration::from_nanos(1));
     })
     .join()
     .unwrap();
@@ -18,8 +19,9 @@ fn mocked_transfers_on_spawn() {
 
 #[chronobreak::test]
 fn sleep_advances() {
+    let start_time = Instant::now();
     thread::sleep(Duration::from_nanos(1));
-    assert_clock_eq!(Duration::from_nanos(1));
+    assert_clock_eq!(start_time + Duration::from_nanos(1));
 }
 
 #[chronobreak::test]
@@ -33,12 +35,13 @@ fn join_doesnt_freeze() {
 }
 
 fn mocked_thread_join_syncs_impl() {
+    let start_time = Instant::now();
     thread::spawn(move || {
         thread::sleep(Duration::from_nanos(1));
     })
     .join()
     .unwrap();
-    assert_clock_eq!(Duration::from_nanos(1));
+    assert_clock_eq!(start_time + Duration::from_nanos(1));
 }
 
 #[test]

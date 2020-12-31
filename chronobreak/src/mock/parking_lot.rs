@@ -10,7 +10,7 @@ pub use parking_lot::{
     RwLockUpgradableReadGuard, RwLockWriteGuard, WaitTimeoutResult,
 };
 
-type MutexData<T> = (T, Duration);
+type MutexData<T> = (T, Instant);
 
 /// **Mock** of [`parking_lot::Mutex`](https://docs.rs/parking_lot/0.11.0/parking_lot/type.Mutex.html)
 #[derive(Debug)]
@@ -21,7 +21,7 @@ pub struct Mutex<T> {
 impl<T> Mutex<T> {
     pub fn new(val: T) -> Self {
         Self {
-            mutex: parking_lot::Mutex::new((val, Duration::default())),
+            mutex: parking_lot::Mutex::new((val, Instant::now())),
         }
     }
 
@@ -42,7 +42,7 @@ pub struct MutexGuard<'a, T> {
 impl<'a, T> From<parking_lot::MutexGuard<'a, MutexData<T>>> for MutexGuard<'a, T> {
     fn from(guard: parking_lot::MutexGuard<'a, MutexData<T>>) -> Self {
         if clock::is_mocked() {
-            clock::unfreeze_advance_to(guard.1.into());
+            clock::unfreeze_advance_to(guard.1);
         }
         MutexGuard { guard }
     }
@@ -65,7 +65,7 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
 impl<'a, T> Drop for MutexGuard<'a, T> {
     fn drop(&mut self) {
         if clock::is_mocked() {
-            self.guard.1 = Instant::now().into();
+            self.guard.1 = Instant::now();
         }
     }
 }

@@ -23,6 +23,7 @@ fn wait_doesnt_freeze() {
 }
 
 fn wait_sycs_with_notifier_impl() {
+    let start_time = Instant::now();
     let data = Arc::new((Mutex::new(()), Condvar::new(), Barrier::new(2)));
     let data2 = data.clone();
     thread::spawn(move || {
@@ -34,7 +35,7 @@ fn wait_sycs_with_notifier_impl() {
     let mut lock = data.0.lock();
     data.2.wait();
     data.1.wait(&mut lock);
-    assert_clock_eq! {Duration::from_millis(1)}
+    assert_clock_eq! {start_time + Duration::from_millis(1)}
 }
 
 #[chronobreak::test]
@@ -48,6 +49,7 @@ fn notify_doesnt_freeze() {
 }
 
 fn advances_notifier_impl() {
+    let start_time = Instant::now();
     let data = Arc::new((Mutex::new(()), Condvar::new(), Barrier::new(2)));
     let data2 = data.clone();
     thread::spawn(move || {
@@ -59,5 +61,5 @@ fn advances_notifier_impl() {
     data2.2.wait();
     data2.0.lock();
     data2.1.notify_all();
-    assert_clock_eq! {Duration::from_millis(1)}
+    assert_clock_eq! {start_time + Duration::from_millis(1)}
 }

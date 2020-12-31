@@ -263,7 +263,7 @@ pub fn advance(dur: Duration) {
 /// # Panics
 ///
 /// This function panics if the clock is not mocked on the current thread.
-pub fn get() -> Duration {
+pub(crate) fn get() -> Duration {
     STATE.with(|state| {
         state
             .borrow()
@@ -325,7 +325,7 @@ pub(crate) fn expect_timed_wait_on(id: ThreadId) {
 #[cfg(test)]
 mod tests {
     use crate::clock;
-    use crate::mock::std::{thread, time::Duration};
+    use crate::mock::std::{thread, time::*};
 
     #[test]
     fn main_thread_is_registered() {

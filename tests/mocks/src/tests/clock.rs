@@ -5,6 +5,8 @@ use std::time::*;
 
 #[chronobreak::test]
 fn mock_is_not_global() {
+    let start_time = Instant::now();
+
     // Tests that the mocked clock is global for only the threads that have been
     // created within the current test. This is required as multiple tests may
     // run in parallel.
@@ -15,5 +17,5 @@ fn mock_is_not_global() {
     })
     .join()
     .unwrap();
-    assert_clock_eq!(Duration::from_nanos(0));
+    assert_clock_eq!(start_time + Duration::from_nanos(0));
 }

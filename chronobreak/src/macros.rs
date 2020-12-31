@@ -3,27 +3,27 @@
 /// On panic, this macro will print the expected and actual local time.
 #[macro_export]
 macro_rules! assert_clock_eq {
-    ($dur:expr) => ({
-        match (&($dur),) {
-            (dur,) => {
-                if !(*dur == ::chronobreak::clock::get()) {
+    ($instant:expr) => ({
+        match (&($instant),) {
+            (instant,) => {
+                if !(*instant == ::chronobreak::mock::std::time::Instant::now()) {
                     panic!(r#"clock assertion failed: `(expected == actual)`
  expected: `{:?}`,
-   actual: `{:?}`"#, &*dur, ::chronobreak::clock::get())
+   actual: `{:?}`"#, &*instant, ::chronobreak::mock::std::time::Instant::now())
                 }
             }
         }
     });
-    ($dur:expr,) => ({
-        $crate::assert_clock_eq!($dur)
+    ($instant:expr,) => ({
+        $crate::assert_clock_eq!($instant)
     });
-    ($dur:expr, $($arg:tt)+) => ({
-        match (&($dur),) {
-            (dur,) => {
-                if !(*dur == ::chronobreak::clock::get()) {
+    ($instant:expr, $($arg:tt)+) => ({
+        match (&($instant),) {
+            (instant,) => {
+                if !(*instant == ::chronobreak::mock::std::time::Instant::now()) {
                     panic!(r#"clock assertion failed: `(expected == actual)`
  expected: `{:?}`,
-   actual: `{:?}`: {}"#, &*dur, ::chronobreak::clock::get(),
+   actual: `{:?}`: {}"#, &*instant, ::chronobreak::mock::std::time::Instant::now(),
                            $crate::format_args!($($arg)+))
                 }
             }

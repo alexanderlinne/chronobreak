@@ -56,7 +56,7 @@ use std::thread;
 ```
 
 To make it as easy as possible to not accidentally miss any mock,
-chronobreak alse re-exports all items for the supported libraries that do
+chronobreak also re-exports all items for the supported libraries that do
 not require to be mocked.
 
 Now we can test with a mocked clock by simply exchanging `#[test]` with
@@ -72,7 +72,7 @@ fn test_return_at() {
 ```
 
 What happens here is that the mocked version of `thread::sleep` will
-act as a decorator for the original fuction. If the clock is mocked
+act as a decorator for the original function. If the clock is mocked
 for the current test case, it will advance it by exactly one second.
 If it is not mocked, `thread::sleep` will directly delegate to the
 original function.

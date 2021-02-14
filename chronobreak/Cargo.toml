@@ -1,15 +1,20 @@
 [package]
 name = "chronobreak"
-version = "0.0.0"
+version = "0.1.0"
+edition = "2018"
 authors = ["Alexander Linne <alexander.linne@outlook.com>"]
 license = "MIT OR Apache-2.0"
 description = "Rust mocks for deterministic time testing"
 repository = "https://github.com/alexanderlinne/chronobreak"
-edition = "2018"
+homepage = "https://github.com/alexanderlinne/chronobreak"
+documentation = "https://docs.rs/chronobreak/0.1.0"
+categories = ["date-and-time", "development-tools::testing"]
+keywords = ["mock", "test", "time", "instant"]
+readme = "../README.md"
 
 [dependencies]
 async-std = { version = "1.6", features = ["unstable"] }
-chronobreak_derive = { path = "../chronobreak_derive" }
+chronobreak_derive = { path = "../chronobreak_derive", version = "0.1.0" }
 
 # supported crates
 futures = { version = "0.3", features = ["thread-pool"], optional = true }

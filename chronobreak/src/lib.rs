@@ -110,6 +110,8 @@ extern crate chronobreak_derive;
 #[macro_use]
 mod macros;
 
+pub mod error;
+
 /// The mocked clock.
 pub mod clock;
 /// The shared clock.

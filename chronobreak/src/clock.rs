@@ -1,3 +1,4 @@
+use crate::error::ChronobreakError;
 use crate::mock::std::time::*;
 use crate::shared_clock::{SharedClock, TimedWakerHandle};
 use std::cell::RefCell;
@@ -133,11 +134,11 @@ pub(crate) fn is_mocked() -> bool {
 /// # Panics
 ///
 /// This function panics if the clock is already mocked on the current thread.
-pub fn mock() -> Result<ClockGuard, ()> {
+pub fn mock() -> Result<ClockGuard, ChronobreakError> {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         if state.is_some() {
-            Err(())
+            Err(ChronobreakError::AlreadyInitialized)
         } else {
             let init = LocalClock::default();
             init.shared_clock.register_thread();
@@ -156,7 +157,7 @@ pub fn mock() -> Result<ClockGuard, ()> {
 /// # Panics
 ///
 /// This function panics if the clock is already mocked on the current thread.
-pub fn frozen() -> Result<ClockGuard, ()> {
+pub fn frozen() -> Result<ClockGuard, ChronobreakError> {
     let result = mock();
     set_frozen(true);
     result

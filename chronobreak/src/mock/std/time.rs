@@ -1,7 +1,5 @@
 use crate::clock;
-use std::cmp;
-use std::ops::Add;
-use std::time;
+use std::{cmp, fmt, hash, ops, time};
 
 pub use time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH};
 
@@ -24,7 +22,7 @@ macro_rules! instant_delegate {
 }
 
 /// **Mock** of [`std::time::Instant`](https://doc.rust-lang.org/std/time/struct.Instant.html)
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone)]
 pub enum Instant {
     Actual(time::Instant),
     Mocked(Duration),
@@ -39,14 +37,36 @@ impl Instant {
         }
     }
 
-    pub fn saturating_duration_since(&self, earlier: Instant) -> Duration {
+    pub fn duration_since(&self, earlier: Self) -> Duration {
+        instant_delegate! {self, now, earlier, now.duration_since(earlier), now.checked_sub(earlier).expect("supplied instant is later than self")}
+    }
+
+    pub fn checked_duration_since(&self, earlier: Self) -> Option<Duration> {
+        instant_delegate! {self, now, earlier, now.checked_duration_since(earlier), now.checked_sub(earlier)}
+    }
+
+    pub fn saturating_duration_since(&self, earlier: Self) -> Duration {
         instant_delegate! {self, now, earlier, now.saturating_duration_since(earlier), now.checked_sub(earlier).unwrap_or_default()}
+    }
+
+    pub fn elapsed(&self) -> Duration {
+        match self {
+            Self::Actual(actual) => actual.elapsed(),
+            Self::Mocked(_) => Self::now() - *self,
+        }
     }
 
     pub fn checked_add(&self, duration: Duration) -> Option<Self> {
         match self {
-            Self::Actual(instant) => instant.checked_add(duration).map(&Self::Actual),
-            Self::Mocked(current_time) => current_time.checked_add(duration).map(&Self::Mocked),
+            Self::Actual(actual) => actual.checked_add(duration).map(&Self::Actual),
+            Self::Mocked(dur) => dur.checked_add(duration).map(&Self::Mocked),
+        }
+    }
+
+    pub fn checked_sub(&self, duration: Duration) -> Option<Self> {
+        match self {
+            Self::Actual(actual) => actual.checked_add(duration).map(&Self::Actual),
+            Self::Mocked(dur) => dur.checked_sub(duration).map(&Self::Mocked),
         }
     }
 }
@@ -71,13 +91,71 @@ impl PartialEq<Instant> for Instant {
     }
 }
 
-impl Add<Duration> for Instant {
+impl hash::Hash for Instant {
+    fn hash<H>(&self, h: &mut H)
+    where
+        H: hash::Hasher,
+    {
+        match self {
+            Self::Actual(instant) => instant.hash(h),
+            Self::Mocked(dur) => dur.hash(h),
+        }
+    }
+}
+
+impl ops::Add<Duration> for Instant {
     type Output = Self;
 
     fn add(self, rhs: Duration) -> Self {
         match self {
-            Self::Actual(instant) => Self::Actual(instant + rhs),
-            Self::Mocked(current_time) => Self::Mocked(current_time + rhs),
+            Self::Actual(actual) => Self::Actual(actual + rhs),
+            Self::Mocked(dur) => Self::Mocked(dur + rhs),
+        }
+    }
+}
+
+impl ops::AddAssign<Duration> for Instant {
+    fn add_assign(&mut self, rhs: Duration) {
+        match self {
+            Self::Actual(actual) => *actual += rhs,
+            Self::Mocked(dur) => *dur += rhs,
+        }
+    }
+}
+
+impl ops::Sub<Duration> for Instant {
+    type Output = Self;
+
+    fn sub(self, rhs: Duration) -> Self {
+        match self {
+            Self::Actual(actual) => Self::Actual(actual - rhs),
+            Self::Mocked(dur) => Self::Mocked(dur - rhs),
+        }
+    }
+}
+
+impl ops::SubAssign<Duration> for Instant {
+    fn sub_assign(&mut self, rhs: Duration) {
+        match self {
+            Self::Actual(actual) => *actual -= rhs,
+            Self::Mocked(dur) => *dur -= rhs,
+        }
+    }
+}
+
+impl ops::Sub<Instant> for Instant {
+    type Output = Duration;
+
+    fn sub(self, rhs: Self) -> Duration {
+        self.duration_since(rhs)
+    }
+}
+
+impl fmt::Debug for Instant {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Actual(actual) => actual.fmt(f),
+            Self::Mocked(dur) => dur.fmt(f),
         }
     }
 }

@@ -108,8 +108,8 @@ impl ops::Add<Duration> for Instant {
 
     fn add(self, rhs: Duration) -> Self {
         match self {
-            Self::Actual(actual) => Self::Actual(actual + rhs),
-            Self::Mocked(dur) => Self::Mocked(dur + rhs),
+            Self::Actual(actual) => Self::Actual(actual.add(rhs)),
+            Self::Mocked(dur) => Self::Mocked(dur.add(rhs)),
         }
     }
 }
@@ -117,8 +117,8 @@ impl ops::Add<Duration> for Instant {
 impl ops::AddAssign<Duration> for Instant {
     fn add_assign(&mut self, rhs: Duration) {
         match self {
-            Self::Actual(actual) => *actual += rhs,
-            Self::Mocked(dur) => *dur += rhs,
+            Self::Actual(actual) => actual.add_assign(rhs),
+            Self::Mocked(dur) => dur.add_assign(rhs),
         }
     }
 }
@@ -128,8 +128,8 @@ impl ops::Sub<Duration> for Instant {
 
     fn sub(self, rhs: Duration) -> Self {
         match self {
-            Self::Actual(actual) => Self::Actual(actual - rhs),
-            Self::Mocked(dur) => Self::Mocked(dur - rhs),
+            Self::Actual(actual) => Self::Actual(actual.sub(rhs)),
+            Self::Mocked(dur) => Self::Mocked(dur.sub(rhs)),
         }
     }
 }
@@ -137,8 +137,8 @@ impl ops::Sub<Duration> for Instant {
 impl ops::SubAssign<Duration> for Instant {
     fn sub_assign(&mut self, rhs: Duration) {
         match self {
-            Self::Actual(actual) => *actual -= rhs,
-            Self::Mocked(dur) => *dur -= rhs,
+            Self::Actual(actual) => actual.sub_assign(rhs),
+            Self::Mocked(dur) => dur.sub_assign(rhs),
         }
     }
 }

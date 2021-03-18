@@ -130,10 +130,6 @@ pub(crate) fn is_mocked() -> bool {
 /// again before the returned guard is dropped. Dropping the guard resets the
 /// clock to the system clock and the internal values of the mocked clock to
 /// Duration::default().
-///
-/// # Panics
-///
-/// This function panics if the clock is already mocked on the current thread.
 pub fn mock() -> Result<ClockGuard, ChronobreakError> {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
@@ -153,10 +149,6 @@ pub fn mock() -> Result<ClockGuard, ChronobreakError> {
 /// This causes all mocked routines on the current thread that perform
 /// timed waiting to not increase the local clock automatically. Instead they
 /// wait for the global clock to be manually advanced from another thread.
-///
-/// # Panics
-///
-/// This function panics if the clock is already mocked on the current thread.
 pub fn frozen() -> Result<ClockGuard, ChronobreakError> {
     let result = mock();
     set_frozen(true);

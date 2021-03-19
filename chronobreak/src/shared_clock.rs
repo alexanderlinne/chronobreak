@@ -1,4 +1,5 @@
 use std::collections::{BinaryHeap, HashMap};
+use std::fmt;
 use std::ops;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock, Weak};
@@ -7,8 +8,14 @@ use std::thread::{self, ThreadId};
 use std::time::Duration;
 
 /// Internal representation of the clock's current time.
-#[derive(Debug, Default, Copy, Clone, Ord, Eq, PartialEq, PartialOrd, Hash)]
+#[derive(Default, Copy, Clone, Ord, Eq, PartialEq, PartialOrd, Hash)]
 pub struct Timepoint(Duration);
+
+impl fmt::Debug for Timepoint {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.0.fmt(f)
+    }
+}
 
 impl Timepoint {
     pub const START: Self = Self(Duration::from_secs(0));

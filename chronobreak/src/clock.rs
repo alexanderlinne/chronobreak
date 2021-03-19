@@ -66,7 +66,7 @@ impl Drop for UnfreezeGuard {
 /// thread advances the shared clock past the time of creation of this instance
 /// plus the given delay. If the shared clock has already passed this time,
 /// the future will be ready immediately.
-pub(crate) struct DelayFuture {
+pub struct DelayFuture {
     timeout: Timepoint,
     waker_handle: Option<TimedWakerHandle>,
 }

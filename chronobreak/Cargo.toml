@@ -15,6 +15,7 @@ readme = "../README.md"
 [dependencies]
 async-std = { version = "1.6", features = ["unstable"] }
 chronobreak_derive = { path = "../chronobreak_derive", version = "0.1.0" }
+pin-project = "1.0"
 thiserror = "1.0"
 
 # supported crates

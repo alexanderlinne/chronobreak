@@ -25,7 +25,7 @@ macro_rules! instant_delegate {
 #[derive(Copy, Clone)]
 pub enum Instant {
     Actual(time::Instant),
-    Mocked(Duration),
+    Mocked(clock::Timepoint),
 }
 
 impl Instant {
@@ -38,15 +38,15 @@ impl Instant {
     }
 
     pub fn duration_since(&self, earlier: Self) -> Duration {
-        instant_delegate! {self, now, earlier, now.duration_since(earlier), now.checked_sub(earlier).expect("supplied instant is later than self")}
+        instant_delegate! {self, now, earlier, now.duration_since(earlier)}
     }
 
     pub fn checked_duration_since(&self, earlier: Self) -> Option<Duration> {
-        instant_delegate! {self, now, earlier, now.checked_duration_since(earlier), now.checked_sub(earlier)}
+        instant_delegate! {self, now, earlier, now.checked_duration_since(earlier)}
     }
 
     pub fn saturating_duration_since(&self, earlier: Self) -> Duration {
-        instant_delegate! {self, now, earlier, now.saturating_duration_since(earlier), now.checked_sub(earlier).unwrap_or_default()}
+        instant_delegate! {self, now, earlier, now.saturating_duration_since(earlier)}
     }
 
     pub fn elapsed(&self) -> Duration {
@@ -65,7 +65,7 @@ impl Instant {
 
     pub fn checked_sub(&self, duration: Duration) -> Option<Self> {
         match self {
-            Self::Actual(actual) => actual.checked_add(duration).map(&Self::Actual),
+            Self::Actual(actual) => actual.checked_sub(duration).map(&Self::Actual),
             Self::Mocked(dur) => dur.checked_sub(duration).map(&Self::Mocked),
         }
     }
@@ -187,14 +187,14 @@ macro_rules! system_time_delegate {
 #[derive(Copy, Clone)]
 pub enum SystemTime {
     Actual(time::SystemTime),
-    Mocked(Duration),
+    Mocked(clock::Timepoint),
     UnixEpoch,
 }
 
 impl SystemTime {
     pub const UNIX_EPOCH: Self = Self::UnixEpoch;
     const ACTUAL_UNIX_EPOCH: Self = Self::Actual(time::SystemTime::UNIX_EPOCH);
-    const MOCKED_UNIX_EPOCH: Self = Self::Mocked(Duration::from_secs(0));
+    const MOCKED_UNIX_EPOCH: Self = Self::Mocked(clock::Timepoint::START);
 
     fn handle_unix_epoch(&self) -> &Self {
         if let Self::UnixEpoch = *self {
@@ -221,7 +221,7 @@ impl SystemTime {
     }
 
     pub fn duration_since(&self, earlier: Self) -> Result<Duration, SystemTimeError> {
-        system_time_delegate! {self, now, earlier, now.duration_since(earlier), Ok(now.checked_sub(earlier).expect("supplied instant is later than self"))}
+        system_time_delegate! {self, now, earlier, now.duration_since(earlier), Ok(now.duration_since(earlier))}
     }
 
     pub fn elapsed(&self) -> Result<Duration, SystemTimeError> {

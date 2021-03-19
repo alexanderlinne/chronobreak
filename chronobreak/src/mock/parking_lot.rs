@@ -1,5 +1,5 @@
 use crate::clock;
-use crate::mock::std::time::*;
+use std::fmt;
 use std::ops::{Deref, DerefMut};
 
 pub use parking_lot::{
@@ -10,7 +10,13 @@ pub use parking_lot::{
     RwLockUpgradableReadGuard, RwLockWriteGuard, WaitTimeoutResult,
 };
 
-type MutexData<T> = (T, Instant);
+struct MutexData<T>(T, clock::SyncHandle);
+
+impl<T: fmt::Debug> fmt::Debug for MutexData<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        self.0.fmt(f)
+    }
+}
 
 /// **Mock** of [`parking_lot::Mutex`](https://docs.rs/parking_lot/0.11.0/parking_lot/type.Mutex.html)
 #[derive(Debug)]
@@ -21,7 +27,7 @@ pub struct Mutex<T> {
 impl<T> Mutex<T> {
     pub fn new(val: T) -> Self {
         Self {
-            mutex: parking_lot::Mutex::new((val, Instant::now())),
+            mutex: parking_lot::Mutex::new(MutexData(val, clock::sync_handle())),
         }
     }
 
@@ -42,7 +48,8 @@ pub struct MutexGuard<'a, T> {
 impl<'a, T> From<parking_lot::MutexGuard<'a, MutexData<T>>> for MutexGuard<'a, T> {
     fn from(guard: parking_lot::MutexGuard<'a, MutexData<T>>) -> Self {
         if clock::is_mocked() {
-            clock::unfreeze_advance_to(guard.1);
+            let _guard = clock::unfreeze_scoped();
+            clock::sync_with(guard.1);
         }
         MutexGuard { guard }
     }
@@ -65,13 +72,12 @@ impl<'a, T> DerefMut for MutexGuard<'a, T> {
 impl<'a, T> Drop for MutexGuard<'a, T> {
     fn drop(&mut self) {
         if clock::is_mocked() {
-            self.guard.1 = Instant::now();
+            self.guard.1 = clock::sync_handle();
         }
     }
 }
 
 /// **Mock** of [`parking_lot::Condvar`](https://docs.rs/parking_lot/0.11.0/parking_lot/struct.Condvar.html)
-#[derive(Debug)]
 pub struct Condvar {
     condvar: parking_lot::Condvar,
     time_sync: Mutex<()>,
@@ -83,6 +89,12 @@ impl Default for Condvar {
             condvar: parking_lot::Condvar::default(),
             time_sync: Mutex::new(()),
         }
+    }
+}
+
+impl fmt::Debug for Condvar {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.condvar.fmt(f)
     }
 }
 

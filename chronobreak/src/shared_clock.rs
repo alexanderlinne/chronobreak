@@ -1,16 +1,74 @@
-use crate::mock::std::time::*;
 use std::collections::{BinaryHeap, HashMap};
+use std::ops;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Condvar, Mutex, RwLock, Weak};
 use std::task::Waker;
-use std::thread;
-use std::thread::ThreadId;
+use std::thread::{self, ThreadId};
+use std::time::Duration;
+
+/// Internal representation of the clock's current time.
+#[derive(Debug, Default, Copy, Clone, Ord, Eq, PartialEq, PartialOrd, Hash)]
+pub struct Timepoint(Duration);
+
+impl Timepoint {
+    pub const START: Self = Self(Duration::from_secs(0));
+
+    pub fn checked_add(&self, duration: Duration) -> Option<Self> {
+        self.0.checked_add(duration).map(&Self)
+    }
+
+    pub fn checked_sub(&self, duration: Duration) -> Option<Self> {
+        self.0.checked_sub(duration).map(&Self)
+    }
+
+    pub fn duration_since(&self, earlier: Self) -> Duration {
+        self.0
+            .checked_sub(earlier.0)
+            .expect("supplied timepoint is later than self")
+    }
+
+    pub fn checked_duration_since(self, earlier: Self) -> Option<Duration> {
+        self.0.checked_sub(earlier.0)
+    }
+
+    pub fn saturating_duration_since(&self, earlier: Self) -> Duration {
+        self.0.checked_sub(earlier.0).unwrap_or_default()
+    }
+}
+
+impl ops::Add<Duration> for Timepoint {
+    type Output = Timepoint;
+
+    fn add(self, duration: Duration) -> Timepoint {
+        Timepoint(self.0 + duration)
+    }
+}
+
+impl ops::AddAssign<Duration> for Timepoint {
+    fn add_assign(&mut self, rhs: Duration) {
+        self.0.add_assign(rhs);
+    }
+}
+
+impl ops::Sub<Duration> for Timepoint {
+    type Output = Self;
+
+    fn sub(self, rhs: Duration) -> Self {
+        Timepoint(self.0.sub(rhs))
+    }
+}
+
+impl ops::SubAssign<Duration> for Timepoint {
+    fn sub_assign(&mut self, rhs: Duration) {
+        self.0.sub_assign(rhs);
+    }
+}
 
 /// State of the shared clock.
 #[derive(Default)]
 pub struct SharedClock {
     /// The current shared time.
-    time: Mutex<Duration>,
+    time: Mutex<Timepoint>,
     /// Condvar, which all threads who attempt to advance the shared clock
     /// while frozen will wait on.
     freeze_cond: Condvar,
@@ -29,39 +87,31 @@ impl SharedClock {
             .insert(thread::current().id(), Default::default());
     }
 
-    pub fn advance_to(&self, time: Instant) {
-        if let Instant::Mocked(time) = time {
-            let mut global_time = self.time.lock().unwrap();
-            if *global_time < time {
-                let _guard = self.notify_timed_wait();
-                while *global_time < time {
-                    global_time = self.freeze_cond.wait(global_time).unwrap();
-                }
+    pub fn advance_to(&self, time: Timepoint) {
+        let mut global_time = self.time.lock().unwrap();
+        if *global_time < time {
+            let _guard = self.notify_timed_wait();
+            while *global_time < time {
+                global_time = self.freeze_cond.wait(global_time).unwrap();
             }
-        } else {
-            panic! {"chronobreak::shared_clock::advance_to requires a mocked Instant"}
         }
     }
 
-    pub fn unfreeze_advance_to(&self, time: Instant) {
-        if let Instant::Mocked(time) = time {
-            let mut global_time = self.time.lock().unwrap();
-            if *global_time < time {
-                *global_time = time;
-                self.freeze_cond.notify_all();
-                let mut wakers = self.wakers.lock().unwrap();
-                while let Some(timed_waker) = wakers.peek() {
-                    if timed_waker.timeout <= time {
-                        if let Some(waker) = wakers.pop().unwrap().waker.upgrade() {
-                            waker.wake_by_ref();
-                        }
-                    } else {
-                        break;
+    pub fn unfreeze_advance_to(&self, time: Timepoint) {
+        let mut global_time = self.time.lock().unwrap();
+        if *global_time < time {
+            *global_time = time;
+            self.freeze_cond.notify_all();
+            let mut wakers = self.wakers.lock().unwrap();
+            while let Some(timed_waker) = wakers.peek() {
+                if timed_waker.timeout <= time {
+                    if let Some(waker) = wakers.pop().unwrap().waker.upgrade() {
+                        waker.wake_by_ref();
                     }
+                } else {
+                    break;
                 }
             }
-        } else {
-            panic! {"chronobreak::shared_clock::unfreeze_advance_to requires a mocked Instant"}
         }
     }
 
@@ -90,27 +140,23 @@ impl SharedClock {
     pub fn register_timed_waker(
         &self,
         waker: Waker,
-        timeout: Instant,
-    ) -> (Option<TimedWakerHandle>, Instant) {
-        if let Instant::Mocked(timeout) = timeout {
-            let current_time = *self.time.lock().unwrap();
-            if current_time < timeout {
-                let mut wakers = self.wakers.lock().unwrap();
-                let guard = self.notify_timed_wait();
-                let result = TimedWakerHandle {
-                    waker: Arc::new(waker),
-                    guard,
-                };
-                wakers.push(TimedWaker {
-                    waker: Arc::downgrade(&result.waker),
-                    timeout,
-                });
-                (Some(result), Instant::Mocked(current_time))
-            } else {
-                (None, Instant::Mocked(current_time))
-            }
+        timeout: Timepoint,
+    ) -> (Option<TimedWakerHandle>, Timepoint) {
+        let current_time = *self.time.lock().unwrap();
+        if current_time < timeout {
+            let mut wakers = self.wakers.lock().unwrap();
+            let guard = self.notify_timed_wait();
+            let result = TimedWakerHandle {
+                waker: Arc::new(waker),
+                guard,
+            };
+            wakers.push(TimedWaker {
+                waker: Arc::downgrade(&result.waker),
+                timeout,
+            });
+            (Some(result), current_time)
         } else {
-            panic! {"shared_clock::register_timed_waker requires a mocked Instant"};
+            (None, current_time)
         }
     }
 }
@@ -147,7 +193,7 @@ impl Drop for TimedWaitGuard {
 /// A waker with a associated execution time.
 struct TimedWaker {
     waker: Weak<Waker>,
-    timeout: Duration,
+    timeout: Timepoint,
 }
 
 impl Ord for TimedWaker {

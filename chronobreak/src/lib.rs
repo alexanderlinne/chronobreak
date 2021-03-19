@@ -88,8 +88,7 @@
 //! clock for any timed wait, chronobreak allows freezing the clock. This
 //! causes all timed waits to instead block until some other thread advances
 //! the clock either manually through [`clock::advance`](clock/fn.advance.html)
-//! or [`clock::advance_to`](clock/fn.advance_to.html) or by performing a
-//! timed wait while not being frozen.
+//! or by performing a timed wait while not being frozen.
 //!
 //! This feature is mainly intended to be used in combination with the
 //! `extended-apis` feature which adds

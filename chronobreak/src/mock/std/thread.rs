@@ -1,6 +1,6 @@
 use crate::clock;
 use crate::mock::std::sync::{Arc, Barrier, Mutex};
-use crate::mock::std::time::*;
+use crate::mock::std::time::Duration;
 use std::thread;
 
 #[allow(deprecated)]
@@ -54,7 +54,7 @@ where
     F: Send + 'static,
     T: Send + 'static,
 {
-    let clock_handle = clock::handle();
+    let clock_handle = clock::registration_handle();
     let join_cell = Arc::new(Mutex::new(None));
     let join_cell_weak = Arc::downgrade(&join_cell);
     let barrier = Arc::new(Barrier::new(2));
@@ -64,7 +64,7 @@ where
         barrier2.wait();
         let result = f();
         if let Some(cell) = join_cell_weak.upgrade() {
-            *cell.lock().unwrap() = Some(Instant::now());
+            *cell.lock().unwrap() = Some(clock::sync_handle());
         }
         result
     });
@@ -74,7 +74,11 @@ where
 }
 
 /// **Mock** of [`std::thread::JoinHandle`](https://doc.rust-lang.org/std/thread/struct.JoinHandle.html)
-pub struct JoinHandle<T>(Arc<Mutex<Option<Instant>>>, thread::JoinHandle<T>, Thread);
+pub struct JoinHandle<T>(
+    Arc<Mutex<Option<clock::SyncHandle>>>,
+    thread::JoinHandle<T>,
+    Thread,
+);
 
 impl<T> JoinHandle<T> {
     pub fn thread(&self) -> &Thread {
@@ -84,8 +88,9 @@ impl<T> JoinHandle<T> {
     pub fn join(self) -> thread::Result<T> {
         let result = self.1.join();
         if clock::is_mocked() {
-            if let Some(time) = *self.0.lock().unwrap() {
-                clock::unfreeze_advance_to(time);
+            if let Some(sync_handle) = *self.0.lock().unwrap() {
+                let _guard = clock::unfreeze_scoped();
+                clock::sync_with(sync_handle);
             }
         }
         result

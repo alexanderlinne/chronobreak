@@ -48,7 +48,7 @@ impl ThreadPoolBuilder {
         F: Fn(usize) + Send + Sync + 'static,
     {
         self.after_start_called = true;
-        let handle = clock::handle();
+        let handle = clock::registration_handle();
         self.builder.after_start(move |id| {
             clock::register_thread(handle.clone());
             f(id)
@@ -66,7 +66,7 @@ impl ThreadPoolBuilder {
 
     pub fn create(&mut self) -> Result<ThreadPool, Error> {
         if !self.after_start_called {
-            let handle = clock::handle();
+            let handle = clock::registration_handle();
             self.builder.after_start(move |_| {
                 clock::register_thread(handle.clone());
             });

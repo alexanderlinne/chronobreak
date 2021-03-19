@@ -1,5 +1,4 @@
 use crate::error::ChronobreakError;
-use crate::mock::std::time::*;
 use crate::shared_clock::{SharedClock, TimedWakerHandle};
 use std::cell::RefCell;
 use std::future::Future;
@@ -7,6 +6,9 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::thread::ThreadId;
+use std::time::Duration;
+
+pub use crate::shared_clock::Timepoint;
 
 thread_local! {
     /// State of the mocked clock. None if the clock is not mocked.
@@ -19,7 +21,7 @@ struct LocalClock {
     /// true if the clock is frozen on this thread, otherwise false.
     frozen: bool,
     /// The current local time.
-    time: Duration,
+    time: Timepoint,
     /// The shared clock.
     shared_clock: Arc<SharedClock>,
 }
@@ -65,14 +67,14 @@ impl Drop for UnfreezeGuard {
 /// plus the given delay. If the shared clock has already passed this time,
 /// the future will be ready immediately.
 pub(crate) struct DelayFuture {
-    timeout: Instant,
+    timeout: Timepoint,
     waker_handle: Option<TimedWakerHandle>,
 }
 
 impl DelayFuture {
     pub fn new(delay: Duration) -> Self {
         Self {
-            timeout: Instant::now() + delay,
+            timeout: get() + delay,
             waker_handle: None,
         }
     }
@@ -84,7 +86,7 @@ impl DelayFuture {
                 .as_ref()
                 .expect("chronobreak::DelayFuture::poll requires the clock to be mocked")
                 .shared_clock;
-            self.timeout = Instant::now() + delay;
+            self.timeout = get() + delay;
             if let Some(handle) = self.waker_handle.take() {
                 self.waker_handle = shared_clock
                     .register_timed_waker(handle.waker(), self.timeout)
@@ -112,7 +114,8 @@ impl Future for DelayFuture {
         });
         let this = Pin::into_inner(self);
         this.waker_handle = handle;
-        unfreeze_advance_to(current_time);
+        let _guard = unfreeze_scoped();
+        advance_to(current_time);
         if this.waker_handle.is_some() {
             Poll::Pending
         } else {
@@ -160,7 +163,7 @@ pub fn frozen() -> Result<ClockGuard, ChronobreakError> {
 /// # Panics
 ///
 /// This function panics if the clock is not mocked on the current thread.
-pub(crate) fn is_frozen() -> bool {
+fn is_frozen() -> bool {
     STATE.with(|state| {
         state
             .borrow()
@@ -204,18 +207,14 @@ fn set_frozen(frozen: bool) {
 /// This function panics if the clock is not mocked on the current thread and
 /// if the given time is not a mocked Instant. (Any Instant created without the
 /// clock being mocked.)
-pub fn advance_to(time: Instant) {
+fn advance_to(time: Timepoint) {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         let mut state = state
             .as_mut()
             .expect("chronobreak::clock::advance_to requires the clock to be mocked");
-        if let Instant::Mocked(time) = time {
-            if state.time < time {
-                state.time = time;
-            }
-        } else {
-            panic! {"chronobreak::clock::advance_to requires a mocked Instant"}
+        if state.time < time {
+            state.time = time;
         }
         if state.frozen {
             state.shared_clock.advance_to(time);
@@ -223,18 +222,6 @@ pub fn advance_to(time: Instant) {
             state.shared_clock.unfreeze_advance_to(time);
         }
     });
-}
-
-/// Temporarily unfreezes the clock, if frozen, then advances the clock to the
-/// given timestamp. If the clock is not frozen, this function is equal to
-/// advance_to.
-///
-/// # Panics
-///
-/// This function panics if the clock is not mocked on the current thread.
-pub(crate) fn unfreeze_advance_to(time: Instant) {
-    let _guard = unfreeze_scoped();
-    advance_to(time);
 }
 
 /// Advances the local clock by the given duration. Sets the shared clock if
@@ -245,7 +232,7 @@ pub(crate) fn unfreeze_advance_to(time: Instant) {
 /// This function panics if the clock is not mocked on the current thread.
 pub fn advance(dur: Duration) {
     if is_mocked() {
-        advance_to(Instant::now() + dur);
+        advance_to(get() + dur);
     } else {
         panic! {"chronobreak::clock::advance requires the clock to be mocked"};
     }
@@ -256,7 +243,7 @@ pub fn advance(dur: Duration) {
 /// # Panics
 ///
 /// This function panics if the clock is not mocked on the current thread.
-pub(crate) fn get() -> Duration {
+pub fn get() -> Timepoint {
     STATE.with(|state| {
         state
             .borrow()
@@ -266,16 +253,15 @@ pub(crate) fn get() -> Duration {
     })
 }
 
-/// A handle to the mocked clock.
-#[allow(dead_code)]
+/// A handle that can be used to register a new thread to the same shared clock
+/// that the thread which created this handle is registered to.
 #[derive(Clone)]
-pub(crate) struct Handle(Option<LocalClock>);
+pub(crate) struct RegistrationHandle(Option<LocalClock>);
 
-/// Returns a handle to the mocked clock of the current thread. This will also
-/// return a valid handle if the clock is not mocked.
-#[allow(dead_code)]
-pub(crate) fn handle() -> Handle {
-    let mut handle = Handle(STATE.with(|state| state.borrow().clone()));
+/// Returns a handle to the mocked clock of the current thread. An empty handle
+/// is returned if the clock is not mocked.
+pub(crate) fn registration_handle() -> RegistrationHandle {
+    let mut handle = RegistrationHandle(STATE.with(|state| state.borrow().clone()));
     if let Some(local_state) = handle.0.as_mut() {
         local_state.frozen = false;
     }
@@ -284,15 +270,39 @@ pub(crate) fn handle() -> Handle {
 
 /// Registers the given handle for the current thread. The local clock will
 /// have the same time as the local clock of the thread on which
-/// [`handle`](fn.handle.html) has been called but will not be frozen,
+/// [`registration_handle`](fn.registration_handle.html) has been called but will not be frozen,
 /// independently of whether the original thread had a frozen clock or not.
 /// After the call, both threads will share a common shared clock.
-#[allow(dead_code)]
-pub(crate) fn register_thread(handle: Handle) {
+pub(crate) fn register_thread(handle: RegistrationHandle) {
     if let Some(local_state) = handle.0.as_ref() {
         local_state.shared_clock.register_thread();
     }
     STATE.with(|state| *state.borrow_mut() = handle.0);
+}
+
+/// A handle that can be used to synchronize a thread's local clock to the time
+/// at which this handle was created.
+#[derive(Clone, Copy)]
+pub(crate) struct SyncHandle(Option<Timepoint>);
+
+/// Returns a synchronization handle with the calling thread's current local
+/// time. An empty handle is returned if the clock is not mocked.
+pub(crate) fn sync_handle() -> SyncHandle {
+    if is_mocked() {
+        SyncHandle(Some(get()))
+    } else {
+        SyncHandle(None)
+    }
+}
+
+/// Synchronizes the calling thread's local clock with the synchronization
+/// handle.
+pub(crate) fn sync_with(handle: SyncHandle) {
+    if let Some(timepoint) = handle.0 {
+        advance_to(timepoint);
+    } else if is_mocked() {
+        panic! {"chronobreak::clock::sync_with called with an unmocked SyncHandle on a mocked clock"}
+    }
 }
 
 /// Blocks the current thread until the thread with the given thread id enters

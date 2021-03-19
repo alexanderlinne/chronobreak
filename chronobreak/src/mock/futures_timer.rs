@@ -1,5 +1,5 @@
 use crate::clock;
-use crate::mock::std::time::*;
+use crate::mock::std::time::Duration;
 use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};

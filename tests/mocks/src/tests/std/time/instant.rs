@@ -121,14 +121,14 @@ fn elapsed() {
 fn checked_add() {
     let dur = Duration::from_secs(1);
     let instant = Instant::now().checked_add(dur);
-    assert_eq! {instant, Some(Instant::Mocked(dur))};
+    assert_eq! {instant, Some(Instant::Mocked(clock::get() + dur))};
 }
 
 #[chronobreak::test]
 fn checked_add_secs_overflow() {
     let dur = Duration::from_secs(u64::MAX);
     let instant = Instant::now().checked_add(dur);
-    assert_eq! {instant, Some(Instant::Mocked(dur))};
+    assert_eq! {instant, Some(Instant::Mocked(clock::get() + dur))};
     let instant = instant.unwrap().checked_add(Duration::from_secs(1));
     assert_eq! {instant, None};
 }
@@ -138,7 +138,7 @@ fn checked_add_nanos_overflow() {
     let dur = Duration::from_secs(u64::MAX)
         + Duration::from_nanos(Duration::from_secs(1).as_nanos() as u64 - 1);
     let instant = Instant::now().checked_add(dur);
-    assert_eq! {instant, Some(Instant::Mocked(dur))};
+    assert_eq! {instant, Some(Instant::Mocked(clock::get() + dur))};
     let instant = instant.unwrap().checked_add(Duration::from_nanos(1));
     assert_eq! {instant, None};
 }
@@ -148,7 +148,7 @@ fn checked_sub() {
     let dur = Duration::from_secs(1);
     clock::advance(dur);
     let instant = Instant::now().checked_sub(dur);
-    assert_eq! {instant, Some(Instant::Mocked(Duration::default()))};
+    assert_eq! {instant, Some(Instant::Mocked(clock::Timepoint::START))};
 }
 
 #[chronobreak::test]

@@ -1,9 +1,9 @@
 use proc_macro::TokenStream;
 use proc_macro_error::*;
 use quote::quote;
-use syn::{parse::Parser, parse_quote, punctuated::Punctuated, Expr, Pat, Token};
+use syn::{parse::Parser, parse_quote, punctuated::Punctuated, Expr, ExprTuple, Pat, Path, Token};
 
-pub fn derive(input: TokenStream) -> TokenStream {
+pub fn derive(input: TokenStream, map: bool) -> TokenStream {
     let exprs = <Punctuated<Expr, Token![,]>>::parse_terminated
         .parse(input)
         .unwrap();
@@ -15,28 +15,53 @@ pub fn derive(input: TokenStream) -> TokenStream {
         Expr::Tuple(tuple) => tuple.clone(),
         expr => parse_quote! {(#expr,)},
     };
-    let (actual_pats, actual_body) = parse_closure_expr(exprs.next().unwrap());
-    let (mocked_pats, mocked_body) = if let Some(expr) = exprs.next() {
-        parse_closure_expr(expr)
-    } else {
-        (actual_pats.clone(), actual_body.clone())
-    };
+    let actual = exprs.next().unwrap();
+    let actual_if_let = create_if_let(
+        parse_quote! {crate::mock::Mock::Actual},
+        &args,
+        actual,
+        "expected a non-mocked value",
+        map,
+    );
+    let mocked_if_let = create_if_let(
+        parse_quote! {crate::mock::Mock::Mocked},
+        &args,
+        exprs.next().unwrap_or(actual),
+        "expected a mocked value",
+        map,
+    );
     (quote! {
         if crate::clock::is_mocked() {
-            if let (#(crate::mock::Mock::Mocked(#mocked_pats),)*) = #args {
-                #mocked_body
-            } else {
-                panic! {"expected a mocked value"}
-            }
+            #mocked_if_let
         } else {
-            if let (#(crate::mock::Mock::Actual(#actual_pats),)*) = #args {
-                #actual_body
-            } else {
-                panic! {"expected a non-mocked value"}
-            }
+            #actual_if_let
         }
     })
     .into()
+}
+
+fn create_if_let(
+    match_path: Path,
+    args: &ExprTuple,
+    closure: &Expr,
+    error_msg: &str,
+    map: bool,
+) -> Expr {
+    let (pats, body) = parse_closure_expr(closure);
+    let if_let = parse_quote! {
+        if let (#(#match_path(#pats),)*) = #args {
+            #body
+        } else {
+            panic! {#error_msg}
+        }
+    };
+    if map {
+        parse_quote! {
+            #match_path(#if_let)
+        }
+    } else {
+        if_let
+    }
 }
 
 fn parse_closure_expr(closure_expr: &syn::Expr) -> (Vec<&Pat>, Box<Expr>) {

@@ -33,21 +33,13 @@ impl Instant {
     }
 
     pub fn checked_add(&self, duration: Duration) -> Option<Self> {
-        self.0
-            .map(
-                |actual| actual.checked_add(duration),
-                |mocked| mocked.checked_add(duration),
-            )
+        mock::map!(self.0, |v| v.checked_add(duration))
             .flatten()
             .map(&Self)
     }
 
     pub fn checked_sub(&self, duration: Duration) -> Option<Self> {
-        self.0
-            .map(
-                |actual| actual.checked_sub(duration),
-                |mocked| mocked.checked_sub(duration),
-            )
+        mock::map!(self.0, |v| v.checked_sub(duration))
             .flatten()
             .map(&Self)
     }
@@ -86,10 +78,7 @@ impl ops::Add<Duration> for Instant {
     type Output = Self;
 
     fn add(self, rhs: Duration) -> Self {
-        Self(
-            self.0
-                .map(|actual| actual.add(rhs), |mocked| mocked.add(rhs)),
-        )
+        Self(mock::map!(self.0, |v| v.add(rhs)))
     }
 }
 
@@ -103,10 +92,7 @@ impl ops::Sub<Duration> for Instant {
     type Output = Self;
 
     fn sub(self, rhs: Duration) -> Self {
-        Self(
-            self.0
-                .map(|actual| actual.sub(rhs), |mocked| mocked.sub(rhs)),
-        )
+        Self(mock::map!(self.0, |v| v.sub(rhs)))
     }
 }
 

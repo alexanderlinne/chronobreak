@@ -88,5 +88,11 @@ pub fn test(args: TokenStream, tokens: TokenStream) -> TokenStream {
 #[proc_macro]
 #[proc_macro_error]
 pub fn apply(input: TokenStream) -> TokenStream {
-    apply_fn::derive(input)
+    apply_fn::derive(input, false)
+}
+
+#[proc_macro]
+#[proc_macro_error]
+pub fn map(input: TokenStream) -> TokenStream {
+    apply_fn::derive(input, true)
 }

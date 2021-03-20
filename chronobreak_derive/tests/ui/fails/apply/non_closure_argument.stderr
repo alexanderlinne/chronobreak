@@ -1,0 +1,5 @@
+error: apply! expected a closure here:
+ --> $DIR/non_closure_argument.rs:7:15
+  |
+7 |     apply!(0, test, |_| 0);
+  |               ^^^^

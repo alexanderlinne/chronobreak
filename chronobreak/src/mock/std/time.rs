@@ -1,85 +1,67 @@
 use crate::clock;
+use crate::mock;
 use std::{cmp, fmt, hash, ops, time};
 
 pub use time::{Duration, SystemTimeError, UNIX_EPOCH};
 
-macro_rules! instant_delegate {
-    ($self:ident, $lhs:ident, $rhs:ident, $actual:expr, $mocked:expr) => {
-        match $self {
-            Self::Actual($lhs) => match $rhs {
-                Self::Actual($rhs) => $actual,
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-            Self::Mocked($lhs) => match $rhs {
-                Self::Mocked($rhs) => $mocked,
-                _ => panic!("Found incompatible Instant unexpectedly!"),
-            },
-        }
-    };
-    ($self:ident, $lhs:ident, $rhs:ident, $e:expr) => {
-        instant_delegate! {$self, $lhs, $rhs, $e, $e}
-    };
-}
-
 /// **Mock** of [`std::time::Instant`](https://doc.rust-lang.org/std/time/struct.Instant.html)
 #[derive(Copy, Clone)]
-pub enum Instant {
-    Actual(time::Instant),
-    Mocked(clock::Timepoint),
-}
+pub struct Instant(mock::Mock<time::Instant, clock::Timepoint>);
 
 impl Instant {
     pub fn now() -> Self {
-        if clock::is_mocked() {
-            Self::Mocked(clock::get())
-        } else {
-            Self::Actual(time::Instant::now())
-        }
+        Self(mock::Mock::new(time::Instant::now, clock::get))
     }
 
     pub fn duration_since(&self, earlier: Self) -> Duration {
-        instant_delegate! {self, now, earlier, now.duration_since(earlier)}
+        mock::apply!((self.0, earlier.0), |(now, earlier)| now
+            .duration_since(earlier))
     }
 
     pub fn checked_duration_since(&self, earlier: Self) -> Option<Duration> {
-        instant_delegate! {self, now, earlier, now.checked_duration_since(earlier)}
+        mock::apply!((self.0, earlier.0), |(now, earlier)| now
+            .checked_duration_since(earlier))
     }
 
     pub fn saturating_duration_since(&self, earlier: Self) -> Duration {
-        instant_delegate! {self, now, earlier, now.saturating_duration_since(earlier)}
+        mock::apply!((self.0, earlier.0), |(now, earlier)| now
+            .saturating_duration_since(earlier))
     }
 
     pub fn elapsed(&self) -> Duration {
-        match self {
-            Self::Actual(actual) => actual.elapsed(),
-            Self::Mocked(_) => Self::now() - *self,
-        }
+        mock::apply!(self.0, |actual| actual.elapsed(), |_| Self::now() - *self)
     }
 
     pub fn checked_add(&self, duration: Duration) -> Option<Self> {
-        match self {
-            Self::Actual(actual) => actual.checked_add(duration).map(&Self::Actual),
-            Self::Mocked(dur) => dur.checked_add(duration).map(&Self::Mocked),
-        }
+        self.0
+            .map(
+                |actual| actual.checked_add(duration),
+                |mocked| mocked.checked_add(duration),
+            )
+            .flatten()
+            .map(&Self)
     }
 
     pub fn checked_sub(&self, duration: Duration) -> Option<Self> {
-        match self {
-            Self::Actual(actual) => actual.checked_sub(duration).map(&Self::Actual),
-            Self::Mocked(dur) => dur.checked_sub(duration).map(&Self::Mocked),
-        }
+        self.0
+            .map(
+                |actual| actual.checked_sub(duration),
+                |mocked| mocked.checked_sub(duration),
+            )
+            .flatten()
+            .map(&Self)
     }
 }
 
 impl Ord for Instant {
     fn cmp(&self, rhs: &Self) -> cmp::Ordering {
-        instant_delegate! {self, lhs, rhs, lhs.cmp(rhs)}
+        mock::apply!((self.0, &rhs.0), |(lhs, rhs)| lhs.cmp(rhs))
     }
 }
 
 impl PartialOrd<Instant> for Instant {
     fn partial_cmp(&self, rhs: &Self) -> Option<cmp::Ordering> {
-        instant_delegate! {self, lhs, rhs, lhs.partial_cmp(rhs)}
+        mock::apply!((self.0, &rhs.0), |(lhs, rhs)| lhs.partial_cmp(rhs))
     }
 }
 
@@ -87,7 +69,7 @@ impl Eq for Instant {}
 
 impl PartialEq<Instant> for Instant {
     fn eq(&self, rhs: &Self) -> bool {
-        instant_delegate! {self, lhs, rhs, lhs.eq(rhs)}
+        mock::apply!((self.0, &rhs.0), |(lhs, rhs)| lhs.eq(rhs))
     }
 }
 
@@ -96,10 +78,7 @@ impl hash::Hash for Instant {
     where
         H: hash::Hasher,
     {
-        match self {
-            Self::Actual(instant) => instant.hash(h),
-            Self::Mocked(dur) => dur.hash(h),
-        }
+        mock::apply!(self.0, |v| v.hash(h))
     }
 }
 
@@ -107,19 +86,16 @@ impl ops::Add<Duration> for Instant {
     type Output = Self;
 
     fn add(self, rhs: Duration) -> Self {
-        match self {
-            Self::Actual(actual) => Self::Actual(actual.add(rhs)),
-            Self::Mocked(dur) => Self::Mocked(dur.add(rhs)),
-        }
+        Self(
+            self.0
+                .map(|actual| actual.add(rhs), |mocked| mocked.add(rhs)),
+        )
     }
 }
 
 impl ops::AddAssign<Duration> for Instant {
     fn add_assign(&mut self, rhs: Duration) {
-        match self {
-            Self::Actual(actual) => actual.add_assign(rhs),
-            Self::Mocked(dur) => dur.add_assign(rhs),
-        }
+        mock::apply!(self.0, |mut v| v.add_assign(rhs))
     }
 }
 
@@ -127,19 +103,16 @@ impl ops::Sub<Duration> for Instant {
     type Output = Self;
 
     fn sub(self, rhs: Duration) -> Self {
-        match self {
-            Self::Actual(actual) => Self::Actual(actual.sub(rhs)),
-            Self::Mocked(dur) => Self::Mocked(dur.sub(rhs)),
-        }
+        Self(
+            self.0
+                .map(|actual| actual.sub(rhs), |mocked| mocked.sub(rhs)),
+        )
     }
 }
 
 impl ops::SubAssign<Duration> for Instant {
     fn sub_assign(&mut self, rhs: Duration) {
-        match self {
-            Self::Actual(actual) => actual.sub_assign(rhs),
-            Self::Mocked(dur) => dur.sub_assign(rhs),
-        }
+        mock::apply!(self.0, |mut v| v.sub_assign(rhs))
     }
 }
 
@@ -153,10 +126,7 @@ impl ops::Sub<Instant> for Instant {
 
 impl fmt::Debug for Instant {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Actual(actual) => actual.fmt(f),
-            Self::Mocked(dur) => dur.fmt(f),
-        }
+        mock::apply!(self.0, |v| v.fmt(f))
     }
 }
 

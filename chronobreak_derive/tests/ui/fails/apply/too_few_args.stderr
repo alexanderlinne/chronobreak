@@ -1,0 +1,5 @@
+error: apply! expectes 2 or 3 arguments
+ --> $DIR/too_few_args.rs:7:12
+  |
+7 |     apply!(0);
+  |            ^

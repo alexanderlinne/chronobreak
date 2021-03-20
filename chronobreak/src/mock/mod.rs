@@ -1,3 +1,5 @@
+use crate::clock;
+
 /// Mocks for [`futures`](https://crates.io/crates/futures) 0.3
 #[cfg(feature = "futures")]
 pub mod futures;
@@ -12,3 +14,69 @@ pub mod parking_lot;
 
 /// Mocks for [the standard library](https://doc.rust-lang.org/std/index.html)
 pub mod std;
+
+pub use chronobreak_derive::apply;
+
+pub enum Mock<Actual, Mocked> {
+    Actual(Actual),
+    Mocked(Mocked),
+}
+
+impl<Actual, Mocked> Mock<Actual, Mocked> {
+    pub fn new<ActualFn, MockedFn>(actual_fn: ActualFn, mocked_fn: MockedFn) -> Self
+    where
+        ActualFn: FnOnce() -> Actual,
+        MockedFn: FnOnce() -> Mocked,
+    {
+        if clock::is_mocked() {
+            Mock::Mocked(mocked_fn())
+        } else {
+            Mock::Actual(actual_fn())
+        }
+    }
+
+    pub fn map<ActualFn, MockedFn, MappedActual, MappedMocked>(
+        &self,
+        actual_fn: ActualFn,
+        mocked_fn: MockedFn,
+    ) -> Mock<MappedActual, MappedMocked>
+    where
+        ActualFn: FnOnce(&Actual) -> MappedActual,
+        MockedFn: FnOnce(&Mocked) -> MappedMocked,
+    {
+        match self {
+            Self::Actual(actual) => Mock::Actual(actual_fn(actual)),
+            Self::Mocked(mocked) => Mock::Mocked(mocked_fn(mocked)),
+        }
+    }
+}
+
+impl<Actual, Mocked> Mock<Option<Actual>, Option<Mocked>> {
+    pub fn flatten(self) -> Option<Mock<Actual, Mocked>> {
+        match self {
+            Self::Actual(Some(actual)) => Some(Mock::Actual(actual)),
+            Self::Mocked(Some(mocked)) => Some(Mock::Mocked(mocked)),
+            _ => None,
+        }
+    }
+}
+
+impl<Actual, Mocked> Copy for Mock<Actual, Mocked>
+where
+    Actual: Copy,
+    Mocked: Copy,
+{
+}
+
+impl<Actual, Mocked> Clone for Mock<Actual, Mocked>
+where
+    Actual: Clone,
+    Mocked: Clone,
+{
+    fn clone(&self) -> Self {
+        match self {
+            Self::Actual(actual) => Self::Actual(actual.clone()),
+            Self::Mocked(mocked) => Self::Mocked(mocked.clone()),
+        }
+    }
+}

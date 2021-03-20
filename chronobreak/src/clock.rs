@@ -125,7 +125,7 @@ impl Future for DelayFuture {
 }
 
 /// Returns whether the clock is currently mocked on the current thread.
-pub(crate) fn is_mocked() -> bool {
+pub fn is_mocked() -> bool {
     STATE.with(|state| state.borrow().is_some())
 }
 

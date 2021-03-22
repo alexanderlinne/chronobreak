@@ -17,21 +17,21 @@ pub fn derive(input: TokenStream, map: bool) -> TokenStream {
     };
     let actual = exprs.next().unwrap();
     let actual_if_let = create_if_let(
-        parse_quote! {crate::mock::Mock::Actual},
+        parse_quote! {chronobreak::mock::Mock::Actual},
         &args,
         actual,
         "expected a non-mocked value",
         map,
     );
     let mocked_if_let = create_if_let(
-        parse_quote! {crate::mock::Mock::Mocked},
+        parse_quote! {chronobreak::mock::Mock::Mocked},
         &args,
         exprs.next().unwrap_or(actual),
         "expected a mocked value",
         map,
     );
     (quote! {
-        if crate::clock::is_mocked() {
+        if chronobreak::clock::is_mocked() {
             #mocked_if_let
         } else {
             #actual_if_let

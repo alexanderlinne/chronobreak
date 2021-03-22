@@ -3,5 +3,9 @@ members = [
     "core/codegen",
     "core/lib",
     "example",
+    "mocks/futures",
+    "mocks/futures_timer",
+    "mocks/parking_lot",
+    "mocks/std",
     "tests/mocks",
 ]

@@ -1,9 +1,9 @@
 [package]
-name = "example"
+name = "chronobreak_parking_lot"
 version = "0.1.0"
 authors = ["Alexander Linne <alexander.linne@outlook.com>"]
 edition = "2018"
 
 [dependencies]
-chronobreak = { path = "../core/lib" }
-chronobreak_std = { path = "../mocks/std" }
+chronobreak = { path = "../../core/lib" }
+parking_lot = { version = "0.11" }

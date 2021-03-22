@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 #[allow(unused_imports)]
-#[macro_use(chronobreak, assert_clock_eq)]
+#[macro_use(chronobreak)]
 extern crate chronobreak;
 
 #[chronobreak]

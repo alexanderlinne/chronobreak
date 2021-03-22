@@ -1,7 +1,7 @@
 use darling::FromMeta;
 use proc_macro::TokenStream;
 use proc_macro_error::*;
-use quote::quote;
+use quote::{format_ident, quote};
 use std::convert::TryInto;
 use syn::{parse_quote, token::Brace, AttributeArgs, Item, ItemMod, ItemUse, UsePath, UseTree};
 
@@ -78,5 +78,8 @@ fn derive_item_use(_: &Args, item_use: &ItemUse) -> Vec<Item> {
 }
 
 fn into_mocked_use_path(use_path: &UsePath) -> proc_macro2::TokenStream {
-    quote! {chronobreak::mock:: #use_path}
+    let ident = format_ident! {"chronobreak_{}", use_path.ident};
+    let colon2_token = use_path.colon2_token;
+    let tree = &use_path.tree;
+    quote! {#ident #colon2_token #tree}
 }

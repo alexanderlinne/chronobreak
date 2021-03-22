@@ -1,5 +1,5 @@
-use crate::clock;
-use crate::mock::std::time::Duration;
+use chronobreak::clock;
+use chronobreak_std::time::Duration;
 use pin_project::pin_project;
 use std::future::Future;
 use std::pin::Pin;

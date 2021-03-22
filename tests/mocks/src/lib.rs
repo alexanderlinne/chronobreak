@@ -1,5 +1,5 @@
 #[allow(unused_imports)]
-#[macro_use(chronobreak, assert_clock_eq)]
+#[macro_use(chronobreak)]
 extern crate chronobreak;
 
 #[cfg(test)]

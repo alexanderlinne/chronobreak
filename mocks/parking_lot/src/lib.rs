@@ -1,4 +1,4 @@
-use crate::clock;
+use chronobreak::clock;
 use std::fmt;
 use std::ops::{Deref, DerefMut};
 

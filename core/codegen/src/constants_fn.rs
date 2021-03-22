@@ -27,20 +27,20 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let mocked_exprs = tuples.iter().map(|tuple| tuple.elems.iter().nth(2));
     (quote! {
         #(
-            pub const #idents: Self = Self(crate::mock::Mock::constant(#ids));
+            pub const #idents: Self = Self(chronobreak::mock::Mock::constant(#ids));
         )*
         const __CHRONOBREAK_CONSTANTS: [(Self, Self); #constants_count] = [
             #(
                 (
-                    Self(crate::mock::Mock::actual(#actual_exprs)),
-                    Self(crate::mock::Mock::mocked(#mocked_exprs))
+                    Self(chronobreak::mock::Mock::actual(#actual_exprs)),
+                    Self(chronobreak::mock::Mock::mocked(#mocked_exprs))
                 )
             )*
         ];
 
         fn __chronobreak_constants(inst: &Self) -> &Self {
-            if let crate::mock::Mock::Constant(id) = inst.0 {
-                if crate::clock::is_mocked() {
+            if let chronobreak::mock::Mock::Constant(id) = inst.0 {
+                if chronobreak::clock::is_mocked() {
                     return &Self::__CHRONOBREAK_CONSTANTS[id].1
                 } else {
                     return &Self::__CHRONOBREAK_CONSTANTS[id].0

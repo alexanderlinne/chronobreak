@@ -1,6 +1,6 @@
-use crate::clock;
-use crate::mock::std::sync::{Arc, Barrier, Mutex};
-use crate::mock::std::time::Duration;
+use crate::sync::{Arc, Barrier, Mutex};
+use crate::time::Duration;
+use chronobreak::clock;
 use std::thread;
 
 #[allow(deprecated)]

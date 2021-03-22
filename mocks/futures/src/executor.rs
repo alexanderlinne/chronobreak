@@ -1,4 +1,4 @@
-use crate::clock;
+use chronobreak::clock;
 use futures::{
     executor,
     future::{Future, FutureObj},

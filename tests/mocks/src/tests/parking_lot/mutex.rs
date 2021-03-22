@@ -32,7 +32,7 @@ fn test_impl() {
     });
     data.1.wait();
     data.0.lock();
-    assert_clock_eq! {start_time + Duration::from_millis(1)}
+    assert_eq! {Instant::now(), start_time + Duration::from_millis(1)}
 }
 
 #[chronobreak::test]

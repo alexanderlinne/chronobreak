@@ -105,10 +105,6 @@
 
 extern crate chronobreak_derive;
 
-/// Exported macros.
-#[macro_use]
-mod macros;
-
 /// Types that represent errors that may occur while using chronobreak.
 pub mod error;
 

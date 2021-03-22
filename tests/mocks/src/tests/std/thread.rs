@@ -11,7 +11,7 @@ fn mocked_transfers_on_spawn() {
     let start_time = Instant::now();
     clock::advance(Duration::from_nanos(1));
     thread::spawn(move || {
-        assert_clock_eq!(start_time + Duration::from_nanos(1));
+        assert_eq!(Instant::now(), start_time + Duration::from_nanos(1));
     })
     .join()
     .unwrap();
@@ -21,7 +21,7 @@ fn mocked_transfers_on_spawn() {
 fn sleep_advances() {
     let start_time = Instant::now();
     thread::sleep(Duration::from_nanos(1));
-    assert_clock_eq!(start_time + Duration::from_nanos(1));
+    assert_eq!(Instant::now(), start_time + Duration::from_nanos(1));
 }
 
 #[chronobreak::test]
@@ -41,7 +41,7 @@ fn mocked_thread_join_syncs_impl() {
     })
     .join()
     .unwrap();
-    assert_clock_eq!(start_time + Duration::from_nanos(1));
+    assert_eq!(Instant::now(), start_time + Duration::from_nanos(1));
 }
 
 #[test]

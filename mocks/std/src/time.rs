@@ -1,5 +1,4 @@
-use crate::clock;
-use crate::mock;
+use chronobreak::{clock, mock};
 use std::{cmp, fmt, hash, ops, time};
 
 pub use time::{Duration, SystemTimeError, UNIX_EPOCH};

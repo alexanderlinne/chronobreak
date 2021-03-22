@@ -35,7 +35,7 @@ fn wait_sycs_with_notifier_impl() {
     let mut lock = data.0.lock();
     data.2.wait();
     data.1.wait(&mut lock);
-    assert_clock_eq! {start_time + Duration::from_millis(1)}
+    assert_eq! {Instant::now(), start_time + Duration::from_millis(1)}
 }
 
 #[chronobreak::test]
@@ -61,5 +61,5 @@ fn advances_notifier_impl() {
     data2.2.wait();
     data2.0.lock();
     data2.1.notify_all();
-    assert_clock_eq! {start_time + Duration::from_millis(1)}
+    assert_eq! {Instant::now(), start_time + Duration::from_millis(1)}
 }

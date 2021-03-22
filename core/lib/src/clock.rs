@@ -43,7 +43,7 @@ impl Drop for ClockGuard {
 /// When this structure is dropped, the clock will be frozen if it was frozen
 /// during creation.
 #[must_use = "if unused the mocked clock will immediately be unfrozen"]
-pub(crate) struct UnfreezeGuard {
+pub struct UnfreezeGuard {
     was_frozen: bool,
 }
 
@@ -178,7 +178,7 @@ fn is_frozen() -> bool {
 /// # Panics
 ///
 /// This function panics if the clock is not mocked on the current thread.
-pub(crate) fn unfreeze_scoped() -> UnfreezeGuard {
+pub fn unfreeze_scoped() -> UnfreezeGuard {
     UnfreezeGuard {
         was_frozen: is_frozen(),
     }
@@ -256,11 +256,11 @@ pub fn get() -> Timepoint {
 /// A handle that can be used to register a new thread to the same shared clock
 /// that the thread which created this handle is registered to.
 #[derive(Clone)]
-pub(crate) struct RegistrationHandle(Option<LocalClock>);
+pub struct RegistrationHandle(Option<LocalClock>);
 
 /// Returns a handle to the mocked clock of the current thread. An empty handle
 /// is returned if the clock is not mocked.
-pub(crate) fn registration_handle() -> RegistrationHandle {
+pub fn registration_handle() -> RegistrationHandle {
     let mut handle = RegistrationHandle(STATE.with(|state| state.borrow().clone()));
     if let Some(local_state) = handle.0.as_mut() {
         local_state.frozen = false;
@@ -273,7 +273,7 @@ pub(crate) fn registration_handle() -> RegistrationHandle {
 /// [`registration_handle`](fn.registration_handle.html) has been called but will not be frozen,
 /// independently of whether the original thread had a frozen clock or not.
 /// After the call, both threads will share a common shared clock.
-pub(crate) fn register_thread(handle: RegistrationHandle) {
+pub fn register_thread(handle: RegistrationHandle) {
     if let Some(local_state) = handle.0.as_ref() {
         local_state.shared_clock.register_thread();
     }
@@ -283,11 +283,11 @@ pub(crate) fn register_thread(handle: RegistrationHandle) {
 /// A handle that can be used to synchronize a thread's local clock to the time
 /// at which this handle was created.
 #[derive(Clone, Copy)]
-pub(crate) struct SyncHandle(Option<Timepoint>);
+pub struct SyncHandle(Option<Timepoint>);
 
 /// Returns a synchronization handle with the calling thread's current local
 /// time. An empty handle is returned if the clock is not mocked.
-pub(crate) fn sync_handle() -> SyncHandle {
+pub fn sync_handle() -> SyncHandle {
     if is_mocked() {
         SyncHandle(Some(get()))
     } else {
@@ -297,7 +297,7 @@ pub(crate) fn sync_handle() -> SyncHandle {
 
 /// Synchronizes the calling thread's local clock with the synchronization
 /// handle.
-pub(crate) fn sync_with(handle: SyncHandle) {
+pub fn sync_with(handle: SyncHandle) {
     if let Some(timepoint) = handle.0 {
         advance_to(timepoint);
     } else if is_mocked() {
@@ -311,8 +311,7 @@ pub(crate) fn sync_with(handle: SyncHandle) {
 /// # Panics
 ///
 /// This function panics if the clock is not mocked on the current thread.
-#[allow(dead_code)]
-pub(crate) fn expect_timed_wait_on(id: ThreadId) {
+pub fn expect_timed_wait_on(id: ThreadId) {
     STATE.with(|state| {
         state
             .borrow()
@@ -323,33 +322,4 @@ pub(crate) fn expect_timed_wait_on(id: ThreadId) {
             .shared_clock
             .expect_timed_wait_on(id)
     });
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::clock;
-    use crate::mock::std::{thread, time::*};
-
-    #[test]
-    fn main_thread_is_registered() {
-        let _clock = clock::frozen().unwrap();
-        let main_thread = thread::current();
-        thread::spawn(move || {
-            clock::expect_timed_wait_on(main_thread.id());
-            clock::advance(Duration::from_millis(1))
-        });
-        clock::advance(Duration::from_millis(1));
-    }
-
-    #[test]
-    fn frozen_wait_is_blocking() {
-        let _clock = clock::frozen().unwrap();
-        let main_thread = thread::current();
-        let thread = thread::spawn(move || {
-            main_thread.expect_timed_wait();
-            clock::advance(Duration::from_nanos(1));
-        });
-        clock::advance(Duration::from_nanos(1));
-        thread.join().unwrap();
-    }
 }

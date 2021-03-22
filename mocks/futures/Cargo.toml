@@ -1,0 +1,9 @@
+[package]
+name = "chronobreak_futures"
+version = "0.1.0"
+authors = ["Alexander Linne <alexander.linne@outlook.com>"]
+edition = "2018"
+
+[dependencies]
+chronobreak = { path = "../../core/lib" }
+futures = { version = "0.3", features = ["thread-pool"] }

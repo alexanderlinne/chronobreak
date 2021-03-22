@@ -1,0 +1,11 @@
+[package]
+name = "chronobreak_futures_timer"
+version = "0.1.0"
+authors = ["Alexander Linne <alexander.linne@outlook.com>"]
+edition = "2018"
+
+[dependencies]
+chronobreak = { path = "../../core/lib" }
+chronobreak_std = { path = "../std" }
+futures-timer = { version = "3.0" }
+pin-project = "1.0"

@@ -25,7 +25,7 @@ mod delay {
     async fn increases_auto_inc() {
         let start_time = Instant::now();
         Delay::new(Duration::from_nanos(1)).await;
-        assert_clock_eq!(start_time + Duration::from_nanos(1));
+        assert_eq! {Instant::now(), start_time + Duration::from_nanos(1)};
     }
 
     #[chronobreak::test]
@@ -34,7 +34,7 @@ mod delay {
         let mut delay = Delay::new(Duration::from_nanos(10));
         delay.reset(Duration::from_nanos(1));
         delay.await;
-        assert_clock_eq!(start_time + Duration::from_nanos(1));
+        assert_eq! {Instant::now(), start_time + Duration::from_nanos(1)};
     }
 
     #[chronobreak::test]
@@ -44,7 +44,7 @@ mod delay {
         let delay2 = Delay::new(Duration::from_nanos(1));
         delay1.await;
         delay2.await;
-        assert_clock_eq!(start_time + Duration::from_nanos(1));
+        assert_eq! {Instant::now(), start_time + Duration::from_nanos(1)};
     }
 
     #[chronobreak::test(frozen)]
@@ -66,17 +66,17 @@ mod delay {
         let waker = waker(boolean_waker.clone());
         let mut context = Context::from_waker(&waker);
         matches! { unsafe { Pin::new_unchecked(&mut delay) }.poll(&mut context), Poll::Pending };
-        assert_clock_eq! {start_time + Duration::default()};
+        assert_eq! {Instant::now(), start_time + Duration::default()};
         assert_eq! {boolean_waker.woken.load(Ordering::Relaxed), false};
         barrier2.wait();
         barrier2.wait();
         matches! { unsafe { Pin::new_unchecked(&mut delay) }.poll(&mut context), Poll::Pending };
-        assert_clock_eq! {start_time + Duration::from_nanos(1)};
+        assert_eq! {Instant::now(), start_time + Duration::from_nanos(1)};
         assert_eq! {boolean_waker.woken.load(Ordering::Relaxed), false};
         barrier2.wait();
         barrier2.wait();
         matches! { unsafe { Pin::new_unchecked(&mut delay) }.poll(&mut context), Poll::Ready(()) };
-        assert_clock_eq! {start_time + Duration::from_nanos(2)};
+        assert_eq! {Instant::now(), start_time + Duration::from_nanos(2)};
         assert_eq! {boolean_waker.woken.load(Ordering::Relaxed), true};
     }
 

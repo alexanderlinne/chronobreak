@@ -1,0 +1,5 @@
+error: constants! expected a tuple here:
+ --> $DIR/non_tuple_arg.rs:4:12
+  |
+4 | constants![0, (0, 0, 0)];
+  |            ^

@@ -14,6 +14,7 @@ where
 
 mod apply_fn;
 mod chronobreak_attr;
+mod constants_fn;
 mod test_attr;
 
 /// Enables the mock on an import or a group of imports.
@@ -95,4 +96,10 @@ pub fn apply(input: TokenStream) -> TokenStream {
 #[proc_macro_error]
 pub fn map(input: TokenStream) -> TokenStream {
     apply_fn::derive(input, true)
+}
+
+#[proc_macro]
+#[proc_macro_error]
+pub fn constants(input: TokenStream) -> TokenStream {
+    constants_fn::derive(input)
 }

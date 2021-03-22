@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use proc_macro_error::*;
-use quote::quote;
+use quote::{format_ident, quote};
 use syn::{parse::Parser, parse_quote, punctuated::Punctuated, Expr, ExprTuple, Pat, Path, Token};
 
 pub fn derive(input: TokenStream, map: bool) -> TokenStream {
@@ -46,21 +46,62 @@ fn create_if_let(
     closure: &Expr,
     error_msg: &str,
     map: bool,
-) -> Expr {
+) -> proc_macro2::TokenStream {
     let (pats, body) = parse_closure_expr(closure);
-    let if_let = parse_quote! {
-        if let (#(#match_path(#pats),)*) = #args {
+    if pats.len() != args.elems.len() {
+        abort! {closure, "apply!: the count of povided arguments and arguments expected by the closure do not match"};
+    }
+    let mapped: Vec<_> = (0usize..)
+        .zip(pats.iter())
+        .zip(args.elems.iter())
+        .map(|((id, pat), arg)| {
+            let ident = format_ident!("__chronobreak_{}", id);
+            match pat {
+                Pat::Ident(ident_pat) => {
+                    let arg_by_ref = if let Expr::Reference(_) = arg {
+                        quote! {&}
+                    } else {
+                        quote! {}
+                    };
+                    let inv_arg_by_ref = if let Expr::Reference(_) = arg {
+                        quote! {}
+                    } else {
+                        quote! {&}
+                    };
+                    let constants_expr = if ident_pat.mutability.is_some() {
+                        quote! { let mut #ident = Self::__chronobreak_constants_mut(#arg); }
+                    } else {
+                        quote! { let #ident = Self::__chronobreak_constants(#inv_arg_by_ref #arg); }
+                    };
+                    (quote! {#arg_by_ref #ident}, constants_expr)
+                }
+                Pat::Wild(_) => (
+                    quote! {#ident},
+                    quote! { let #ident = Self::__chronobreak_constants(#arg); },
+                ),
+                _ => abort! {pat, "apply! currently only supports ident and wildcard patterns"},
+            }
+        })
+        .collect();
+    let idents = mapped.iter().map(|v| &v.0);
+    let if_let = quote! {
+        if let (#(#match_path(#pats),)*) = (#(#idents.0, )*) {
             #body
         } else {
             panic! {#error_msg}
         }
     };
+    let constants_exprs = mapped.iter().map(|v| &v.1);
     if map {
-        parse_quote! {
+        quote! {
+            #(#constants_exprs)*
             #match_path(#if_let)
         }
     } else {
-        if_let
+        quote! {
+            #(#constants_exprs)*
+            #if_let
+        }
     }
 }
 

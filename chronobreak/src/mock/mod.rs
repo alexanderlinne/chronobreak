@@ -15,11 +15,12 @@ pub mod parking_lot;
 /// Mocks for [the standard library](https://doc.rust-lang.org/std/index.html)
 pub mod std;
 
-pub use chronobreak_derive::{apply, map};
+pub use chronobreak_derive::{apply, constants, map};
 
 pub enum Mock<Actual, Mocked> {
     Actual(Actual),
     Mocked(Mocked),
+    Constant(usize),
 }
 
 impl<Actual, Mocked> Mock<Actual, Mocked> {
@@ -33,6 +34,18 @@ impl<Actual, Mocked> Mock<Actual, Mocked> {
         } else {
             Mock::Actual(actual_fn())
         }
+    }
+
+    pub const fn actual(value: Actual) -> Self {
+        Self::Actual(value)
+    }
+
+    pub const fn mocked(value: Mocked) -> Self {
+        Self::Mocked(value)
+    }
+
+    pub const fn constant(id: usize) -> Self {
+        Self::Constant(id)
     }
 }
 
@@ -62,6 +75,7 @@ where
         match self {
             Self::Actual(actual) => Self::Actual(actual.clone()),
             Self::Mocked(mocked) => Self::Mocked(mocked.clone()),
+            Self::Constant(id) => Self::Constant(*id),
         }
     }
 }

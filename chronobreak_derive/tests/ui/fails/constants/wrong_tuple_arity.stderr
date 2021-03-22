@@ -1,0 +1,5 @@
+error: constants! expected a 3-tuple here:
+ --> $DIR/wrong_tuple_arity.rs:4:13
+  |
+4 | constants![(0, 0)];
+  |             ^^^^

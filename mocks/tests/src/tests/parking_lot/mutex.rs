@@ -9,8 +9,6 @@ mod mock {
 }
 use mock::*;
 
-impl_debug! {mutex, Mutex::new(())}
-
 #[chronobreak::test]
 fn lock_sycs_participants() {
     test_impl()

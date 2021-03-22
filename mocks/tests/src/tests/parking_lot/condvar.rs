@@ -1,3 +1,4 @@
+use crate::util;
 use chronobreak::clock;
 use std::sync::{Arc, Barrier};
 
@@ -9,8 +10,14 @@ mod mock {
 }
 use mock::*;
 
-impl_debug! {condvar, Condvar::new()}
-impl_default! {condvar, Condvar}
+#[test]
+#[ignore]
+fn traits() {
+    util::is_debug::<Condvar>();
+    util::is_default::<Condvar>();
+    util::is_send::<Condvar>();
+    util::is_sync::<Condvar>();
+}
 
 #[chronobreak::test]
 fn wait_sycs_with_notifier() {

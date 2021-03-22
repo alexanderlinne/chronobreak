@@ -1,3 +1,4 @@
+use crate::util;
 use futures::future::FutureObj;
 use futures::task::Spawn;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -10,10 +11,19 @@ mod mock {
 }
 use mock::*;
 
-impl_clone! {thread_pool, ThreadPool::new().unwrap()}
-impl_debug! {thread_pool, ThreadPool::new().unwrap()}
-impl_default! {thread_pool_builder, ThreadPoolBuilder}
-impl_debug! {thread_pool_builder, ThreadPool::builder()}
+#[test]
+#[ignore]
+fn traits() {
+    util::is_clone::<ThreadPool>();
+    util::is_debug::<ThreadPool>();
+    util::is_send::<ThreadPool>();
+    util::is_sync::<ThreadPool>();
+
+    util::is_default::<ThreadPoolBuilder>();
+    util::is_debug::<ThreadPoolBuilder>();
+    util::is_send::<ThreadPoolBuilder>();
+    util::is_sync::<ThreadPoolBuilder>();
+}
 
 #[chronobreak::test]
 fn spawn_ok() {

@@ -5,4 +5,4 @@ authors = ["Alexander Linne <alexander.linne@outlook.com>"]
 edition = "2018"
 
 [dependencies]
-chronobreak = { path = "../chronobreak", features = ["extended-apis"] }
+chronobreak = { path = "../core/lib", features = ["extended-apis"] }

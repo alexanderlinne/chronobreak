@@ -5,7 +5,7 @@ authors = ["Alexander Linne <alexander.linne@outlook.com>"]
 edition = "2018"
 
 [dependencies]
-chronobreak = { path = "../../chronobreak", features = ["extended-apis"] }
+chronobreak = { path = "../../core/lib", features = ["extended-apis"] }
 futures = { version = "0.3", features = ["thread-pool"] }
 paste = "1.0"
 

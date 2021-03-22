@@ -1,7 +1,7 @@
 [workspace]
 members = [
-    "chronobreak",
-    "chronobreak_derive",
+    "core/codegen",
+    "core/lib",
     "example",
     "tests/mocks",
 ]

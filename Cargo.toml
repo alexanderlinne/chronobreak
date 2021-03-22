@@ -7,5 +7,5 @@ members = [
     "mocks/futures_timer",
     "mocks/parking_lot",
     "mocks/std",
-    "tests/mocks",
+    "mocks/tests",
 ]

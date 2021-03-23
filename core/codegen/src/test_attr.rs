@@ -48,7 +48,7 @@ fn derive_item_fn(args: &FnArgs, item_fn: &ItemFn) -> Item {
         #(#attrs)*
         #vis #sig {
             use ::chronobreak::clock;
-            let _clock = clock::#mock_fn().unwrap();
+            let _clock = clock::#mock_fn();
             #(#stmts)*
         }
     })

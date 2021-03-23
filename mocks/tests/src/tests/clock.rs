@@ -6,7 +6,7 @@ use std::time::*;
 
 #[test]
 fn main_thread_is_registered() {
-    let _clock = clock::frozen().unwrap();
+    let _clock = clock::frozen();
     let main_thread = thread::current();
     thread::spawn(move || {
         clock::expect_timed_wait_on(main_thread.id());
@@ -17,7 +17,7 @@ fn main_thread_is_registered() {
 
 #[test]
 fn frozen_wait_is_blocking() {
-    let _clock = clock::frozen().unwrap();
+    let _clock = clock::frozen();
     let main_thread = thread::current();
     let thread = thread::spawn(move || {
         main_thread.expect_timed_wait();

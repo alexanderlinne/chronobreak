@@ -13,9 +13,7 @@ keywords = ["mock", "test", "time", "instant"]
 readme = "../README.md"
 
 [dependencies]
-async-std = { version = "1.6", features = ["unstable"] }
 chronobreak_derive = { path = "../codegen", version = "0.1.0" }
-thiserror = "1.0"
 
 [package.metadata.docs.rs]
 all-features = true

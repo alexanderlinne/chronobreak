@@ -1,4 +1,3 @@
-use crate::error::ChronobreakError;
 use crate::shared_clock::{SharedClock, TimedWakerHandle};
 use std::cell::RefCell;
 use std::future::Future;
@@ -133,16 +132,20 @@ pub fn is_mocked() -> bool {
 /// again before the returned guard is dropped. Dropping the guard resets the
 /// clock to the system clock and the internal values of the mocked clock to
 /// Duration::default().
-pub fn mock() -> Result<ClockGuard, ChronobreakError> {
+///
+/// # Panics
+///
+/// This function panics if the clock is already mocked on the current thread.
+pub fn mock() -> ClockGuard {
     STATE.with(|state| {
         let mut state = state.borrow_mut();
         if state.is_some() {
-            Err(ChronobreakError::AlreadyInitialized)
+            panic! {"mock called on an already mocked clock"};
         } else {
             let init = LocalClock::default();
             init.shared_clock.register_thread();
             *state = Some(init);
-            Ok(ClockGuard {})
+            ClockGuard {}
         }
     })
 }
@@ -152,7 +155,11 @@ pub fn mock() -> Result<ClockGuard, ChronobreakError> {
 /// This causes all mocked routines on the current thread that perform
 /// timed waiting to not increase the local clock automatically. Instead they
 /// wait for the global clock to be manually advanced from another thread.
-pub fn frozen() -> Result<ClockGuard, ChronobreakError> {
+///
+/// # Panics
+///
+/// This function panics if the clock is already mocked on the current thread.
+pub fn frozen() -> ClockGuard {
     let result = mock();
     set_frozen(true);
     result

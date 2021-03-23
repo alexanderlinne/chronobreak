@@ -105,9 +105,6 @@
 
 extern crate chronobreak_derive;
 
-/// Types that represent errors that may occur while using chronobreak.
-pub mod error;
-
 /// The mocked clock.
 pub mod clock;
 /// The shared clock.

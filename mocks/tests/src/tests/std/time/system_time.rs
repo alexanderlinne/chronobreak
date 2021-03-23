@@ -6,7 +6,7 @@ use std::time::*;
 #[should_panic]
 fn duration_since_incompatible_1() {
     let lhs = SystemTime::now();
-    let _clock = clock::mock().unwrap();
+    let _clock = clock::mock();
     let rhs = SystemTime::now();
     let _ = lhs.duration_since(rhs);
 }
@@ -15,7 +15,7 @@ fn duration_since_incompatible_1() {
 #[should_panic]
 fn duration_since_incompatible_2() {
     let lhs = SystemTime::now();
-    let _clock = clock::mock().unwrap();
+    let _clock = clock::mock();
     let rhs = SystemTime::now();
     let _ = rhs.duration_since(lhs);
 }

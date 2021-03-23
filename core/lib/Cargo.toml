@@ -14,6 +14,7 @@ readme = "../README.md"
 
 [dependencies]
 chronobreak_derive = { path = "../codegen", version = "0.1.0" }
+chronobreak_globals = { path = "../globals", version = "*" }
 
 [package.metadata.docs.rs]
 all-features = true

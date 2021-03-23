@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "core/codegen",
+    "core/globals",
     "core/lib",
     "example",
     "mocks/futures",

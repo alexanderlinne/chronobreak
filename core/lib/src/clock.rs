@@ -1,29 +1,12 @@
-use crate::shared_clock::{SharedClock, TimedWakerHandle};
-use std::cell::RefCell;
+use chronobreak_globals::local_clock::{LocalClock, STATE};
+use chronobreak_globals::shared_clock::TimedWakerHandle;
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
 use std::task::{Context, Poll};
 use std::thread::ThreadId;
 use std::time::Duration;
 
-pub use crate::shared_clock::Timepoint;
-
-thread_local! {
-    /// State of the mocked clock. None if the clock is not mocked.
-    static STATE: RefCell<Option<LocalClock>> = RefCell::new(None);
-}
-
-/// State of the local clock.
-#[derive(Default, Clone)]
-struct LocalClock {
-    /// true if the clock is frozen on this thread, otherwise false.
-    frozen: bool,
-    /// The current local time.
-    time: Timepoint,
-    /// The shared clock.
-    shared_clock: Arc<SharedClock>,
-}
+pub use chronobreak_globals::shared_clock::Timepoint;
 
 /// A RAII guard returned by [`mock`](fn.mock.html). When this structure is
 /// dropped, the mocked clock is destroyed.

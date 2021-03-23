@@ -107,8 +107,6 @@ extern crate chronobreak_derive;
 
 /// The mocked clock.
 pub mod clock;
-/// The shared clock.
-mod shared_clock;
 
 /// Mocks for the standard library and several popular crates.
 pub mod mock;

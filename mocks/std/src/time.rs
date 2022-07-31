@@ -1,3 +1,5 @@
+#![allow(clippy::needless_borrow)]
+
 use chronobreak::{clock, mock};
 use std::{cmp, fmt, hash, ops, time};
 

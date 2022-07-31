@@ -60,7 +60,7 @@ fn derive_item_use(_: &Args, item_use: &ItemUse) -> Vec<Item> {
         UseTree::Path(use_path) => use_path,
         _ => unimplemented! {},
     };
-    let mocked_use_path = into_mocked_use_path(&use_path);
+    let mocked_use_path = into_mocked_use_path(use_path);
     vec![
         parse_quote! {
             #[cfg(test)]
